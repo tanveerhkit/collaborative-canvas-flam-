@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collaborative Drawing Canvas</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="theme-logo.css">
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <!-- FontAwesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo-container">
+        <img src="logo-light.png" alt="Flam" class="header-logo logo-light">
+        <img src="logo-dark.png" alt="Flam" class="header-logo logo-dark">
+        <span class="logo-text">Collaborative Canvas</span>
+      </div>
+      <div class="room-info">
+        <span class="label">Room:</span>
+        <span id="room-id" class="room-id">...</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-info">
+        <div id="user-color" class="user-color-indicator"></div>
+        <span id="user-name">...</span>
+      </div>
+      <div class="online-users">
+        <span class="label">Online:</span>
+        <span id="user-count">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Tools -->
+      <div class="panel">
+        <h3>Tools</h3>
+        <div class="tool-buttons">
+          <button class="tool-btn active" data-tool="brush" title="Brush">
+            <i class="fa-solid fa-paintbrush"></i>
+            <span>Brush</span>
+          </button>
+          <button class="tool-btn" data-tool="eraser" title="Eraser">
+            <i class="fa-solid fa-eraser"></i>
+            <span>Eraser</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color Picker -->
+      <div class="panel">
+        <h3><i class="fa-solid fa-palette"></i> Color</h3>
+        <div class="color-picker-wrapper">
+          <input type="color" id="color-picker" value="#000000" class="color-picker">
+        </div>
+        <div class="color-presets">
+          <button class="color-preset" style="background: #000000" data-color="#000000"></button>
+          <button class="color-preset" style="background: #FF6B6B" data-color="#FF6B6B"></button>
+          <button class="color-preset" style="background: #4ECDC4" data-color="#4ECDC4"></button>
+          <button class="color-preset" style="background: #45B7D1" data-color="#45B7D1"></button>
+          <button class="color-preset" style="background: #FFA07A" data-color="#FFA07A"></button>
+          <button class="color-preset" style="background: #F7DC6F" data-color="#F7DC6F"></button>
+        </div>
+
+        <!-- Recent Colors -->
+        <div id="recent-colors-container" style="display: none; margin-top: 12px;">
+          <h4
+            style="font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em;">
+            Recent</h4>
+          <div id="recent-colors" class="recent-colors">
+            <!-- Javascript will populate this -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Stroke Width -->
+      <div class="panel">
+        <h3><i class="fa-solid fa-circle-dot"></i> Stroke Size</h3>
+        <input type="range" id="stroke-width" min="1" max="20" value="2" class="slider">
+        <div class="width-display">
+          <span id="width-value">2</span>px
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="panel">
+        <h3><i class="fa-solid fa-bolt"></i> Actions</h3>
+        <button id="undo-btn" class="action-btn">
+          <i class="fa-solid fa-rotate-left"></i> Undo
+        </button>
+        <button id="redo-btn" class="action-btn">
+          <i class="fa-solid fa-rotate-right"></i> Redo
+        </button>
+        <button id="clear-btn" class="action-btn danger">
+          <i class="fa-solid fa-trash-can"></i> Clear
+        </button>
+      </div>
+
+      <!-- Share -->
+      <div class="panel">
+        <h3><i class="fa-solid fa-share-nodes"></i> Share</h3>
+        <div class="share-container">
+          <input type="text" id="share-link" readonly class="share-input">
+          <button id="copy-link-btn" class="copy-btn">Copy</button>
+        </div>
+      </div>
+
+      <!-- Admin Controls (only visible to admin) -->
+      <div id="admin-panel" class="panel" style="display: none;">
+        <h3>👑 Admin Controls</h3>
+        <div class="admin-actions-row" style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <button id="admin-undo-btn" class="action-btn" title="Undo Last Global Action" style="flex: 1;">
+            <i class="fa-solid fa-rotate-left"></i> Global Undo
+          </button>
+          <button id="admin-redo-btn" class="action-btn" title="Redo Last Global Action" style="flex: 1;">
+            <i class="fa-solid fa-rotate-right"></i> Global Redo
+          </button>
+        </div>
+        <button id="admin-clear-all-btn" class="action-btn danger">
+          <i class="fa-solid fa-bomb"></i> Clear All Canvas
+        </button>
+        <div class="theme-toggle">
+          <button id="theme-light-btn" class="theme-btn active">
+            <i class="fa-solid fa-sun"></i> <span>Light</span>
+          </button>
+          <button id="theme-dark-btn" class="theme-btn">
+            <i class="fa-solid fa-moon"></i> <span>Dark</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div class="panel">
+        <h3><i class="fa-solid fa-users"></i> Online</h3>
+        <div id="user-list" class="user-list"></div>
+      </div>
+    </aside>
+
+    <!-- Canvas Area -->
+    <main class="canvas-container">
+      <canvas id="canvas"></canvas>
+      <canvas id="cursor-overlay"></canvas>
+      <div id="status" class="status"></div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="canvas.js"></script>
+  <script src="websocket.js"></script>
+  <script src="main.js"></script>
+
+  <script>
+    // Color preset click handlers
+    document.querySelectorAll('.color-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const color = btn.dataset.color;
+        document.getElementById('color-picker').value = color;
+        canvasManager.setColor(color);
+      });
+    });
+  </script>
+</body>
+
+</html>
