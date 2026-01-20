@@ -1,0 +1,10 @@
+/* Add logo switching logic to theme.css */
+body.dark-theme .logo-light {
+    display: none;
+}
+
+body.dark-theme .logo-dark {
+    display: block;
+    mix-blend-mode: screen;
+    /* Makes black background transparent */
+}
