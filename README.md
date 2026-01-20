@@ -1,12 +1,13 @@
 # Collaborative Canvas 🎨
 
-![Collaborative Demo](docs/assets/collab_demo.png)
+![Collaborative Demo](docs/assets/screenshot_overview.png)
 
 > **Experience seamless creativity.** A real-time collaborative drawing platform where multiple users can sketch, brainstorm, and create together instantly.
 
 ## ✨ Key Features
 
 ### 🚀 Real-Time Collaboration
+![Action Shot](docs/assets/screenshot_action.png)
 - **Instant Sync**: See every stroke from every user as it happens.
 - **Multi-User Presence**: Watch "Ghost Cursors" glide across the screen, showing exactly where others are working.
 - **Room-Based Sessions**: Create private rooms (`?room=unique-id`) to collaborate with specific groups.
@@ -17,7 +18,7 @@
 - **Premium UI**: A glassmorphism-inspired interface with dark/light mode support.
 
 ### 🛡️ Admin System
-![Admin Panel](docs/assets/admin_ui.png)
+![Admin Panel](docs/assets/screenshot_admin.png)
 - **Role Management**: Room creators get Admin status (👑).
 - **Moderation**: Admins can kick disruptive users.
 - **Global Actions**: Admins can undo/redo *any* action or clear the board for everyone.
