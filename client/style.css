@@ -1,0 +1,1074 @@
+:root {
+  /* Premium Color Palette - Refined Multi-Stop Gradients */
+  --gradient-bg: linear-gradient(135deg,
+      #e0e7ff 0%,
+      #c7d2fe 15%,
+      #ddd6fe 35%,
+      #fae8ff 55%,
+      #fce7f3 75%,
+      #ede9fe 100%);
+
+  /* Accent Colors */
+  --primary: #7c3aed;
+  --primary-light: #a78bfa;
+  --primary-glow: rgba(124, 58, 237, 0.4);
+  --secondary: #ec4899;
+  --accent: #8b5cf6;
+
+  /* Glassmorphism - Ultra Refined */
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-bg-hover: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border-subtle: rgba(255, 255, 255, 0.3);
+  --glass-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+  --glass-shadow-elevated:
+    0 8px 40px rgba(0, 0, 0, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.04);
+  --glass-blur: blur(20px);
+  --glass-saturate: saturate(180%);
+
+  /* Inner Highlights (Luxury SaaS Feel) */
+  --inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --inner-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+
+  /* Typography */
+  --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --text-primary: #1e1b4b;
+  --text-secondary: #4c4877;
+  --text-muted: #6b7280;
+
+  /* Spacing & Radius */
+  --radius-full: 9999px;
+  --radius-xl: 28px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  /* Layout */
+  --header-height: 64px;
+  --sidebar-width: 280px;
+
+  /* Transitions - Spring-based feel */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Reset */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-main);
+  background: var(--gradient-bg);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+/* =========================================
+   2. FLOATING PILL HEADER
+   ========================================= */
+.header {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  height: var(--header-height);
+  width: calc(100% - 48px);
+  max-width: 1400px;
+
+  /* Glass Effect */
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
+
+  /* Premium Pill Shape */
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow),
+    var(--inner-highlight),
+    var(--inner-shadow);
+
+  /* Layout */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 1000;
+
+  transition: all var(--transition-smooth);
+}
+
+.header:hover {
+  background: var(--glass-bg-hover);
+  box-shadow: var(--glass-shadow-elevated), var(--inner-highlight);
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Logo */
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-logo {
+  height: 36px;
+  width: auto;
+  transition: transform var(--transition-spring);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.header-logo:hover {
+  transform: scale(1.05) rotate(-2deg);
+}
+
+.logo-light {
+  display: block;
+}
+
+.logo-dark {
+  display: none;
+}
+
+.logo-text {
+  font-size: 1.125rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
+}
+
+/* Room Info Pill */
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border-subtle);
+  transition: all var(--transition-fast);
+}
+
+.room-info:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.room-id {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* User Info */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.user-color-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  transition: transform var(--transition-spring);
+}
+
+.user-color-indicator:hover {
+  transform: scale(1.1);
+}
+
+#user-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.online-users {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border-subtle);
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 13px;
+}
+
+/* =========================================
+   3. MAIN LAYOUT
+   ========================================= */
+.container {
+  display: flex;
+  padding: calc(var(--header-height) + 40px) 24px 24px;
+  height: 100vh;
+  gap: 20px;
+}
+
+/* =========================================
+   4. FLOATING TOOLS PANEL
+   ========================================= */
+.sidebar {
+  width: var(--sidebar-width);
+
+  /* Glass Card */
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glass-shadow), var(--inner-highlight);
+
+  /* Layout */
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+
+  /* Hide Scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Panel Sections */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.panel h3 i {
+  font-size: 12px;
+  color: var(--primary-light);
+}
+
+/* Tool Buttons - Tactile Feel */
+.tool-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 12px;
+
+  /* Styling */
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  /* Text */
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  transition: all var(--transition-smooth);
+}
+
+.tool-btn i {
+  font-size: 18px;
+  transition: transform var(--transition-spring);
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  color: var(--primary);
+}
+
+.tool-btn:hover i {
+  transform: scale(1.1);
+}
+
+.tool-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.tool-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow:
+    0 4px 16px var(--primary-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.tool-btn.active i {
+  transform: scale(1.05);
+}
+
+/* Color Picker - Elegant Swatches */
+.color-picker-wrapper {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.color-picker {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: transparent;
+}
+
+.color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Color Presets - Circular Swatches with Gloss */
+.color-presets {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.color-preset {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-spring);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+/* Gloss Effect */
+.color-preset::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), transparent);
+  border-radius: 50% 50% 0 0;
+}
+
+.color-preset:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.color-preset:active {
+  transform: scale(1.1);
+}
+
+/* Active Ring Animation */
+.color-preset.active {
+  box-shadow:
+    0 0 0 3px rgba(124, 58, 237, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Recent Colors */
+.recent-colors {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.recent-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-spring);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.recent-swatch:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.recent-swatch.active {
+  box-shadow:
+    0 0 0 2px rgba(124, 58, 237, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: scale(1.1);
+}
+
+@keyframes popIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Stroke Slider - Sleek & Minimal */
+.slider {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: var(--radius-full);
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+  margin: 12px 0;
+  position: relative;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  background: white;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 0 0 4px var(--primary-glow);
+  transition: all var(--transition-smooth);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 0 0 6px var(--primary-glow);
+}
+
+.slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  background: white;
+  border: 2px solid var(--primary);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.width-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: var(--radius-full);
+  min-width: 54px;
+}
+
+/* Action Buttons */
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  transition: all var(--transition-fast);
+}
+
+.action-btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  color: var(--text-primary);
+}
+
+.action-btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.action-btn.danger {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.06);
+  border-color: rgba(220, 38, 38, 0.1);
+}
+
+.action-btn.danger:hover {
+  background: #dc2626;
+  color: white;
+  border-color: #dc2626;
+  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
+}
+
+/* User Action Buttons */
+.user-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.user-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.user-action-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text-primary);
+}
+
+.user-action-btn.kick:hover {
+  color: #EF4444;
+  /* Red */
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Share Container */
+.share-container {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.share-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.share-input:focus {
+  outline: none;
+}
+
+.copy-btn {
+  padding: 10px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-main);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.copy-btn:hover {
+  background: var(--primary-light);
+  transform: scale(1.02);
+}
+
+/* Admin Panel */
+#admin-panel {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(236, 72, 153, 0.08));
+  border: 1px dashed rgba(124, 58, 237, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+.theme-toggle {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-full);
+  margin-top: 12px;
+}
+
+/* We hide the spans here to match original ultra-premium, 
+   but since we added icons in index.html, we can adjust if needed.
+   For strict revert style, we hide text. */
+.theme-toggle span {
+  display: none;
+}
+
+.theme-btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.theme-btn.active {
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* User List - Minimal Avatars with Status Glow */
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.user-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.user-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 2px;
+}
+
+.user-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+}
+
+.user-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.user-item:hover {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateX(4px);
+  border-color: var(--glass-border-subtle);
+}
+
+.user-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.user-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.user-admin-badge {
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
+}
+
+.user-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.user-action-btn {
+  padding: 6px 10px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.user-action-btn:hover {
+  background: #dc2626;
+  color: white;
+}
+
+/* =========================================
+   5. CANVAS - PREMIUM DRAWING PAD
+   ========================================= */
+.canvas-container {
+  flex: 1;
+  position: relative;
+
+  /* Pristine White Surface */
+  background: white;
+  border-radius: var(--radius-xl);
+
+  /* Soft Glass Frame */
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    0 8px 40px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+
+  overflow: hidden;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  background: white;
+}
+
+#cursor-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Status Toast */
+.status {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all var(--transition-spring);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.status.success {
+  background: #10b981;
+  color: white;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.status.error {
+  background: #ef4444;
+  color: white;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Notifications */
+.notification {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+
+  background: var(--glass-bg-hover);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+
+  padding: 16px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
+  border-left: 4px solid var(--primary);
+  box-shadow: var(--glass-shadow-elevated);
+
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  transition: all var(--transition-spring);
+  z-index: 2000;
+}
+
+.notification.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* =========================================
+   6. RESPONSIVE
+   ========================================= */
+/* =========================================
+   6. RESPONSIVE (FLOATING DOCK LAYOUT)
+   ========================================= */
+@media (max-width: 900px) {
+
+  /* 1. Header Changes */
+  .header {
+    width: calc(100% - 24px);
+    padding: 0 16px;
+    height: 56px;
+    top: 12px;
+  }
+
+  .logo-text,
+  .room-info .label {
+    display: none;
+  }
+
+  .room-info {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  /* 2. Main Layout - Full Screen Canvas */
+  .container {
+    padding: 0;
+    /* Remove padding to let canvas fill screen */
+    height: 100vh;
+    display: block;
+    /* Remove flex to handle fixed positioning */
+  }
+
+  /* 3. Canvas - Background Layer */
+  .canvas-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    /* No radius on mobile for full immersion */
+    border: none;
+    z-index: 1;
+  }
+
+  #cursor-overlay {
+    z-index: 10;
+  }
+
+  /* 4. Sidebar -> Floating Bottom Dock! */
+  .sidebar {
+    position: fixed;
+    bottom: 20px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: 25vh;
+    /* Limit height */
+
+    /* Layout */
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 16px;
+    padding: 16px;
+    z-index: 100;
+
+    /* Improve Glass for Dark Backgrounds */
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 24px;
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Make panels horizontal */
+  .panel {
+    min-width: max-content;
+    flex-direction: row;
+    align-items: center;
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+    padding-right: 16px;
+  }
+
+  .panel:last-child {
+    border-right: none;
+  }
+
+  .panel h3 {
+    display: none;
+  }
+
+  /* Hide labels to save space */
+
+  /* Horizontal Tools */
+  .tool-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tool-btn {
+    padding: 10px;
+    height: 44px;
+    width: 44px;
+    border-radius: 12px;
+  }
+
+  .tool-btn span {
+    display: none;
+  }
+
+  /* Hide text, show icon only */
+  .tool-btn i {
+    font-size: 18px;
+  }
+
+  /* Sliders & Pickers */
+  .color-picker-wrapper {
+    width: 44px;
+  }
+
+  /* Dark Theme Adjustments for Dock */
+  body.dark-theme .sidebar {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Extra Small Screens */
+@media (max-width: 480px) {
+  .header {
+    top: 8px;
+    height: 50px;
+  }
+
+  .room-id {
+    font-size: 10px;
+  }
+
+  .sidebar {
+    bottom: 12px;
+    left: 8px;
+    right: 8px;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .tool-btn {
+    height: 38px;
+    width: 38px;
+    padding: 8px;
+  }
+}
+
+/* =========================================
+   7. ANIMATIONS
+   ========================================= */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--primary-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
+
+.tool-btn.active {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
