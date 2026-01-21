@@ -894,6 +894,22 @@ class CanvasManager {
                     self.ctx.lineWidth = 3;
                     self.ctx.setLineDash([5, 5]);
                     self.ctx.strokeRect(finalX - 2, finalY - 2, finalWidth + 4, finalHeight + 4);
+
+                    // Draw corner handles
+                    self.ctx.setLineDash([]);
+                    self.ctx.fillStyle = '#6366f1';
+                    // Use a fixed pixel size for handles, but scaled slightly if zoomed
+                    const handlePixelSize = 16;
+
+                    // TL
+                    self.ctx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                    // TR
+                    self.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                    // BL
+                    self.ctx.fillRect(finalX - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                    // BR
+                    self.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+
                     self.ctx.restore();
                 }
             };
@@ -1423,7 +1439,7 @@ class CanvasManager {
             // Draw corner handles
             this.previewCtx.setLineDash([]);
             this.previewCtx.fillStyle = '#6366f1';
-            const handlePixelSize = 8;
+            const handlePixelSize = 16;
 
             // TL
             this.previewCtx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
