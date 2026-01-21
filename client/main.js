@@ -424,11 +424,22 @@ function setupCursorTracking() {
 function drawCursor(ctx, cursorData) {
     const { x, y, userColor, userName } = cursorData;
 
+    // x, y are normalized (0-1)
+    // 1. Convert to World Pixels
+    // We can use canvasManager helper if available, or calc manually
+    const worldX = x * canvasManager.canvas.width;
+    const worldY = y * canvasManager.canvas.height;
+
+    // 2. Convert to Screen Pixels (Apply Camera Transform)
+    const { zoom, x: panX, y: panY } = canvasManager.camera;
+    const screenX = worldX * zoom + panX;
+    const screenY = worldY * zoom + panY;
+
     ctx.save();
 
     // Draw cursor circle
     ctx.beginPath();
-    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
     ctx.fillStyle = userColor;
     ctx.fill();
     ctx.strokeStyle = '#FFFFFF';
@@ -437,7 +448,7 @@ function drawCursor(ctx, cursorData) {
 
     // Draw inner dot
     ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.arc(screenX, screenY, 3, 0, Math.PI * 2);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
 
@@ -448,16 +459,6 @@ function drawCursor(ctx, cursorData) {
     ctx.lineWidth = 3;
 
     const label = userName;
-    const labelX = x + 15;
-    const labelY = y - 10;
-
-    // Draw text outline
-    ctx.strokeText(label, labelX, labelY);
-    // Draw text fill
-    ctx.fillText(label, labelX, labelY);
-
-    // Draw cursor pointer (arrow shape)
-    ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x - 5, y + 12);
     ctx.lineTo(x + 5, y + 12);
