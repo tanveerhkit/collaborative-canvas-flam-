@@ -1171,3 +1171,22 @@ body {
     flex-shrink: 0;
   }
 }
+
+/* =========================================
+   MOBILE TOUCH FIXES
+   ========================================= */
+canvas,
+#drawing-canvas,
+.canvas-layer {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  overscroll-behavior: none !important;
+}
+
+/* Ensure no text selection on the entire app when using tools */
+body.drawing-active {
+  user-select: none;
+  -webkit-user-select: none;
+}
