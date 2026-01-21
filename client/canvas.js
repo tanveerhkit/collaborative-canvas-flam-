@@ -46,7 +46,9 @@ class CanvasManager {
         this.resizeCorner = null; // 'tl', 'tr', 'bl', 'br'
         this.resizeStartSize = { width: 0, height: 0 };
         this.resizeStartPos = { x: 0, y: 0 };
-        this.HANDLE_SIZE = 0.05; // Size of corner handles (normalized) - 5% of canvas
+        // Check if touch device
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        this.HANDLE_SIZE = isTouch ? 0.1 : 0.05; // 10% for touch, 5% for mouse
 
         // Setup canvas
         this.setupCanvas();
@@ -108,11 +110,15 @@ class CanvasManager {
             } else {
                 e.preventDefault();
                 const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousedown', {
+                // Create a mock event object with necessary properties
+                // We mock it because we're calling the handler directly
+                const mockEvent = {
                     clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                this.canvas.dispatchEvent(mouseEvent);
+                    clientY: touch.clientY,
+                    preventDefault: () => { },
+                    stopPropagation: () => { }
+                };
+                this.startDrawing(mockEvent);
             }
         }, { passive: false });
 
@@ -123,20 +129,26 @@ class CanvasManager {
             } else {
                 e.preventDefault();
                 const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousemove', {
+                const mockEvent = {
                     clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                this.canvas.dispatchEvent(mouseEvent);
+                    clientY: touch.clientY,
+                    preventDefault: () => { },
+                    stopPropagation: () => { }
+                };
+                this.draw(mockEvent);
             }
         }, { passive: false });
 
         this.canvas.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            const mouseEvent = new MouseEvent('mouseup', {});
-            this.canvas.dispatchEvent(mouseEvent);
-            this.handleTouchEnd(e);
-        });
+            if (e.touches.length < 2) {
+                // Only stop drawing if not pinching/panning
+                // e.preventDefault(); // Sometimes prevents click?
+                this.stopDrawing();
+                this.handleTouchEnd(e);
+            } else {
+                this.handleTouchEnd(e);
+            }
+        }, { passive: false });
     }
 
     handleWheel(e) {
