@@ -207,7 +207,7 @@ class CanvasManager {
     }
 
     /**
-     * Draw on canvas - uses midpoint quadratic curves for perfect smoothness
+     * Draw on canvas - smooth drawing with continuous lines
      */
     draw(e) {
         if (!this.isDrawing) {
@@ -218,8 +218,11 @@ class CanvasManager {
 
         const pos = this.getMousePos(e); // Normalized
 
-        // Don't draw if point hasn't moved
-        if (pos.x === this.lastPoint.x && pos.y === this.lastPoint.y) return;
+        // Don't draw if point hasn't moved significantly
+        const dx = pos.x - this.lastPoint.x;
+        const dy = pos.y - this.lastPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 0.0005) return; // Threshold to avoid jitter
 
         this.currentPath.push(pos);
 
@@ -233,17 +236,13 @@ class CanvasManager {
 
         this.ctx.lineWidth = this.currentWidth;
         this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
         this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
 
-        // Draw locally using simple mid-point smoothing on PIXELS
-        const localMid = {
-            x: (lastPixelPos.x + pixelPos.x) / 2,
-            y: (lastPixelPos.y + pixelPos.y) / 2
-        };
-
+        // Draw a simple line segment (smooth because of lineCap: round)
         this.ctx.beginPath();
         this.ctx.moveTo(lastPixelPos.x, lastPixelPos.y);
-        this.ctx.quadraticCurveTo(lastPixelPos.x, lastPixelPos.y, localMid.x, localMid.y);
+        this.ctx.lineTo(pixelPos.x, pixelPos.y);
         this.ctx.stroke();
 
         this.ctx.restore(); // Restore transform
