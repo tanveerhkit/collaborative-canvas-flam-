@@ -261,8 +261,12 @@ body {
 .container {
   display: flex;
   padding: calc(var(--header-height) + 40px) 24px 24px;
-  height: 100vh;
+  flex: 1;
+  /* Fill remaining space after header */
+  min-height: 0;
+  /* Allow shrinking in flex context */
   gap: 20px;
+  overflow: hidden;
 }
 
 /* =========================================
@@ -1103,93 +1107,37 @@ body {
 /* =========================================
    8. MOBILE RESPONSIVENESS
    ========================================= */
+/* =========================================
+   8. MOBILE RESPONSIVENESS (Reverted to Desktop View)
+   ========================================= */
+/* 
+   User specifically requested Desktop View on Mobile.
+   Floating dock styles are removed to keep the sidebar visible.
+*/
+
 @media (max-width: 768px) {
+
+  /* Minimal adjustments for spacing if needed, but keeping layout intact */
   .app-header {
     height: 60px;
     padding: 0 12px;
   }
 
-  /* Compact Room ID for mobile */
-  .room-id {
-    font-size: 13px;
-    padding: 4px 8px;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .room-id span {
     display: none;
+    /* Hide label, show ID */
   }
 
-  .user-badge {
-    padding: 4px 8px;
-    font-size: 12px;
+  /* Force Sidebar to remain visible (Desktop Mode) */
+  .container {
+    flex-direction: row;
+    /* Ensure row layout */
   }
 
-  /* Make Floating Dock Scrollable horizontally */
-  .floating-dock {
-    width: 95%;
-    max-width: none;
-    padding: 12px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    justify-content: flex-start;
-    bottom: 20px;
-    scrollbar-width: none;
-    /* Firefox */
-  }
-
-  .floating-dock::-webkit-scrollbar {
-    display: none;
-    /* Chrome/Safari */
-  }
-
-  .tools-group {
+  /* Sidebar adjustments for small screens if needed */
+  .sidebar {
+    width: 260px;
+    /* Keep fixed width or make resizable later */
     flex-shrink: 0;
-    gap: 8px;
-  }
-
-  .slider-container {
-    min-width: 80px;
-    flex-shrink: 0;
-  }
-
-  .width-display {
-    display: none;
-  }
-
-  .color-preset {
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-  }
-
-  .recent-swatch {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* Ensure canvas is reachable */
-  .canvas-container {
-    height: 100%;
-    width: 100%;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
-    /* Behind UI */
-  }
-
-  /* Admin Panel Mobile */
-  .admin-panel {
-    top: 70px;
-    right: 10px;
-    left: 10px;
-    width: auto;
-    max-width: none;
   }
 }

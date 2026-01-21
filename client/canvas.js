@@ -16,7 +16,16 @@ class CanvasManager {
         this.operations = [];
 
         // Active strokes being drawn by other users (for real-time incremental updates)
-        this.activeStrokes = new Map(); // userId -> {points, color, width, tool}
+        this.activeStrokes = new Map(); // userId -> { points, color, width, tool }
+
+        // Camera State (Zoom & Pan)
+        this.camera = {
+            x: 0,
+            y: 0,
+            zoom: 1
+        };
+        this.isPanning = false;
+        this.lastPanPoint = { x: 0, y: 0 };
 
         // Setup canvas
         this.setupCanvas();
@@ -61,32 +70,84 @@ class CanvasManager {
         this.canvas.addEventListener('mouseup', () => this.stopDrawing());
         this.canvas.addEventListener('mouseout', () => this.stopDrawing());
 
+        // Zoom (Wheel)
+        this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+
         // Touch events for mobile
         this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousedown', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.canvas.dispatchEvent(mouseEvent);
-        });
+            if (e.touches.length === 2) {
+                // Pinched / Pan Start
+                this.handleTouchStart(e);
+            } else {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                this.canvas.dispatchEvent(mouseEvent);
+            }
+        }, { passive: false });
 
         this.canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousemove', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.canvas.dispatchEvent(mouseEvent);
-        });
+            if (e.touches.length === 2) {
+                // Pinched / Pan Move
+                this.handleTouchMove(e);
+            } else {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                this.canvas.dispatchEvent(mouseEvent);
+            }
+        }, { passive: false });
 
         this.canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             const mouseEvent = new MouseEvent('mouseup', {});
             this.canvas.dispatchEvent(mouseEvent);
+            this.handleTouchEnd(e);
         });
+    }
+
+    handleWheel(e) {
+        e.preventDefault();
+        const zoomSensitivity = 0.001;
+        const delta = -e.deltaY * zoomSensitivity;
+        const newZoom = Math.min(Math.max(0.1, this.camera.zoom + delta), 5); // Limit zoom 0.1x to 5x
+
+        // Zoom towards mouse pointer
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate world point before zoom
+        const worldX = (mouseX - this.camera.x) / this.camera.zoom;
+        const worldY = (mouseY - this.camera.y) / this.camera.zoom;
+
+        // Apply new zoom
+        this.camera.zoom = newZoom;
+
+        // Calculate new camera position to keep world point under mouse
+        this.camera.x = mouseX - worldX * this.camera.zoom;
+        this.camera.y = mouseY - worldY * this.camera.zoom;
+
+        this.redrawCanvas();
+    }
+
+    handleTouchStart(e) {
+        // Implement 2-finger pan/zoom later or simple pan for now
+        // For simplicity, let's just handle pan with 2 fingers
+    }
+
+    handleTouchMove(e) {
+        // ...
+    }
+
+    handleTouchEnd(e) {
+        // ...
     }
 
     /**
@@ -97,9 +158,18 @@ class CanvasManager {
      */
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
+        // Screen Coordinates
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+
+        // Apply Inverse Camera Transform (Screen -> World Pixels)
+        const worldPixelX = (screenX - this.camera.x) / this.camera.zoom;
+        const worldPixelY = (screenY - this.camera.y) / this.camera.zoom;
+
+        // Normalize (0-1) based on actual canvas dimensions
         return {
-            x: (e.clientX - rect.left) / this.canvas.width,
-            y: (e.clientY - rect.top) / this.canvas.height
+            x: worldPixelX / this.canvas.width,
+            y: worldPixelY / this.canvas.height
         };
     }
 
@@ -122,18 +192,18 @@ class CanvasManager {
         this.currentPath = [pos];
         this.lastPoint = pos;
 
-        // Setup stroke style once at start
-        this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
-        this.ctx.lineWidth = this.currentWidth;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-
-        // Draw initial point as a dot (convert to pixels)
+        // Draw initial point as a dot (convert to pixels and apply camera transform)
         const pixelPos = this.toPixelPos(pos);
+
+        this.ctx.save();
+        this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
+
         this.ctx.beginPath();
         this.ctx.arc(pixelPos.x, pixelPos.y, this.currentWidth / 2, 0, Math.PI * 2);
         this.ctx.fillStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
         this.ctx.fill();
+
+        this.ctx.restore();
     }
 
     /**
@@ -153,11 +223,14 @@ class CanvasManager {
 
         this.currentPath.push(pos);
 
-        // Convert to pixels for local rendering
+        // Convert to pixels for local rendering (World Pixels)
         const pixelPos = this.toPixelPos(pos);
         const lastPixelPos = this.toPixelPos(this.lastPoint);
 
-        // Setup context
+        // Setup context with camera transform
+        this.ctx.save();
+        this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
+
         this.ctx.lineWidth = this.currentWidth;
         this.ctx.lineCap = 'round';
         this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
@@ -172,6 +245,8 @@ class CanvasManager {
         this.ctx.moveTo(lastPixelPos.x, lastPixelPos.y);
         this.ctx.quadraticCurveTo(lastPixelPos.x, lastPixelPos.y, localMid.x, localMid.y);
         this.ctx.stroke();
+
+        this.ctx.restore(); // Restore transform
 
         this.lastPoint = pos; // Keep lastPoint normalized
 
@@ -216,6 +291,22 @@ class CanvasManager {
 
     /**
      * Draw a complete operation (from server or history)
+     * NOTE: Expects context to be already transformed if called inside redrawCanvas
+     * But if called individually (e.g. late arrival), we might need to verify transform.
+     * Since redrawCanvas handles the transform for all ops, we can assume this draws in World Coordinates.
+     * BUT wait - redrawCanvas clears transform before finishing? No.
+     * redrawCanvas wraps the loop in setTransform.
+     * So drawOperation just needs to draw World Coordinates.
+     * HOWEVER, 'addOperation' calls 'drawOperation' directly for realtime updates from other users.
+     * IN THAT CASE, the context probably has Identity transform.
+     * So we should check or enforce transform here?
+     * Cleaner: Enforce transform inside drawOperation by using save/restore?
+     * BUT if called from redrawCanvas loop, we would be doing save/restore 1000 times.
+     * Let's refactor: Make drawOperation assume World Coords.
+     * And callers must set transform.
+     * 
+     * Caller 1: redrawCanvas -> Sets transform. OK.
+     * Caller 2: addOperation -> Needs to set transform.
      */
     drawOperation(operation) {
         if (!operation.data || !operation.data.points) return;
@@ -224,14 +315,14 @@ class CanvasManager {
 
         if (points.length === 0) return;
 
+        // Convert to pixel coordinates (World)
+        const pixelPoints = points.map(p => this.toPixelPos(p));
+
         this.ctx.beginPath();
         this.ctx.strokeStyle = tool === 'eraser' ? '#FFFFFF' : color;
         this.ctx.lineWidth = width;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
-
-        // Convert to pixel coordinates
-        const pixelPoints = points.map(p => this.toPixelPos(p));
 
         // Draw first point
         this.ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
@@ -262,10 +353,19 @@ class CanvasManager {
      * Redraw entire canvas from operations
      */
     redrawCanvas() {
-        // Clear canvas
+        // Clear screen (using full canvas size)
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset transform to clear
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Background
         this.ctx.fillStyle = '#FFFFFF';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Grid (Optional visual aid for infinite canvas feel)
+        this.drawGrid();
+
+        // Apply Camera Transform
+        this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
 
         // Redraw all operations
         this.operations.forEach(op => {
@@ -273,6 +373,33 @@ class CanvasManager {
                 this.drawOperation(op);
             }
         });
+
+        // Reset transform for UI/Overlays if any? NO, we might want cursor to scale too?
+        // Actually, cursors should probably be drawn in world space too.
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset
+    }
+
+    drawGrid() {
+        // Simple grid to visualize zoom
+        const step = 50 * this.camera.zoom;
+        if (step < 10) return; // Too dense
+
+        const offsetX = this.camera.x % step;
+        const offsetY = this.camera.y % step;
+
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = 'rgba(0,0,0,0.05)';
+        this.ctx.lineWidth = 1;
+
+        for (let x = offsetX; x < this.canvas.width; x += step) {
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+        }
+        for (let y = offsetY; y < this.canvas.height; y += step) {
+            this.ctx.moveTo(0, y);
+            this.ctx.lineTo(this.canvas.width, y);
+        }
+        this.ctx.stroke();
     }
 
     /**
@@ -319,7 +446,11 @@ class CanvasManager {
 
             // Only draw if not undone
             if (!operation.undone) {
+                // Ensure camera transform is applied for these updates
+                this.ctx.save();
+                this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
                 this.drawOperation(operation);
+                this.ctx.restore();
             }
         }
     }
@@ -388,18 +519,19 @@ class CanvasManager {
      * Draw remote cursor
      */
     drawRemoteCursor(x, y, color, userName) {
-        // Normalize if receiving pixel coords? No, server should relay whatever sendCursorMove sent.
-        // BUT emitCursorMove now sends normalized. So x,y are normalized.
+        // x, y are normalized
         const pixelPos = this.toPixelPos({ x, y });
-        const px = pixelPos.x;
-        const py = pixelPos.y;
+        // Transform to Screen Coordinates manually
+        const screenX = pixelPos.x * this.camera.zoom + this.camera.x;
+        const screenY = pixelPos.y * this.camera.zoom + this.camera.y;
 
-        // Draw cursor indicator
+        // Draw cursor indicator (Fixed size on screen)
         this.ctx.save();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset to Identity (Screen Coords)
 
         // Draw circle
         this.ctx.beginPath();
-        this.ctx.arc(px, py, 5, 0, Math.PI * 2);
+        this.ctx.arc(screenX, screenY, 5, 0, Math.PI * 2);
         this.ctx.fillStyle = color;
         this.ctx.fill();
         this.ctx.strokeStyle = '#FFFFFF';
@@ -409,7 +541,7 @@ class CanvasManager {
         // Draw user name
         this.ctx.font = '12px Arial';
         this.ctx.fillStyle = color;
-        this.ctx.fillText(userName, px + 10, py - 10);
+        this.ctx.fillText(userName, screenX + 10, screenY - 10);
 
         this.ctx.restore();
     }
@@ -421,8 +553,11 @@ class CanvasManager {
     drawIncrementalPoints(points, color, width, tool) {
         if (points.length === 0) return;
 
-        // Convert all points to pixels
+        // Convert all points to pixels (World Coordinates)
         const pixelPoints = points.map(p => this.toPixelPos(p));
+
+        this.ctx.save();
+        this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
 
         this.ctx.beginPath();
         this.ctx.strokeStyle = tool === 'eraser' ? '#FFFFFF' : color;
@@ -460,5 +595,7 @@ class CanvasManager {
 
             this.ctx.stroke();
         }
+
+        this.ctx.restore();
     }
 }
