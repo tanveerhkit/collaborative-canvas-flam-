@@ -26,6 +26,8 @@ class CanvasManager {
         };
         this.isPanning = false;
         this.lastPanPoint = { x: 0, y: 0 };
+        this.lastPinchDist = 0;
+        this.lastPinchCenter = null;
 
         // Setup canvas
         this.setupCanvas();
@@ -138,16 +140,90 @@ class CanvasManager {
     }
 
     handleTouchStart(e) {
-        // Implement 2-finger pan/zoom later or simple pan for now
-        // For simplicity, let's just handle pan with 2 fingers
+        if (e.touches.length === 2) {
+            this.isDrawing = false; // Stop drawing if pinching
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+
+            // Calculate initial distance
+            const dx = touch1.clientX - touch2.clientX;
+            const dy = touch1.clientY - touch2.clientY;
+            this.lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+
+            // Calculate center point
+            this.lastPinchCenter = {
+                x: (touch1.clientX + touch2.clientX) / 2,
+                y: (touch1.clientY + touch2.clientY) / 2
+            };
+        }
     }
 
     handleTouchMove(e) {
-        // ...
+        if (e.touches.length === 2) {
+            e.preventDefault(); // Prevent browser zoom
+
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+
+            // Calculate new distance
+            const dx = touch1.clientX - touch2.clientX;
+            const dy = touch1.clientY - touch2.clientY;
+            const currentDist = Math.sqrt(dx * dx + dy * dy);
+
+            // Calculate new center
+            const currentCenter = {
+                x: (touch1.clientX + touch2.clientX) / 2,
+                y: (touch1.clientY + touch2.clientY) / 2
+            };
+
+            if (this.lastPinchDist > 0) {
+                // Determine zoom factor
+                const zoomFactor = currentDist / this.lastPinchDist;
+
+                // Limit zoom speed/bounds
+                let newZoom = this.camera.zoom * zoomFactor;
+                newZoom = Math.min(Math.max(0.1, newZoom), 5);
+
+                // Zoom towards the center of the pinch
+                const rect = this.canvas.getBoundingClientRect();
+                const centerX = this.lastPinchCenter.x - rect.left;
+                const centerY = this.lastPinchCenter.y - rect.top;
+
+                // World Point under the pinch center (before zoom)
+                const worldX = (centerX - this.camera.x) / this.camera.zoom;
+                const worldY = (centerY - this.camera.y) / this.camera.zoom;
+
+                // Pan logic (movement of the center point itself)
+                const panDX = currentCenter.x - this.lastPinchCenter.x;
+                const panDY = currentCenter.y - this.lastPinchCenter.y;
+
+                // Apply new zoom
+                this.camera.zoom = newZoom;
+
+                // Update Camera X/Y:
+                // 1. Keep world point stationary relative to zoom
+                this.camera.x = centerX - worldX * this.camera.zoom;
+                this.camera.y = centerY - worldY * this.camera.zoom;
+
+                // 2. Apply the pan movement (fingers moving together)
+                this.camera.x += panDX;
+                this.camera.y += panDY;
+
+                this.redrawCanvas();
+            }
+
+            // Update state for next frame
+            this.lastPinchDist = currentDist;
+            this.lastPinchCenter = currentCenter;
+        }
     }
 
     handleTouchEnd(e) {
-        // ...
+        // Reset pinch state if fingers lifted
+        if (e.touches.length < 2) {
+            this.lastPinchDist = 0;
+            this.lastPinchCenter = null;
+        }
     }
 
     /**
