@@ -1072,3 +1072,90 @@ body {
 .tool-btn.active {
   animation: pulse-glow 2s ease-in-out infinite;
 }
+
+/* =========================================
+   8. MOBILE RESPONSIVENESS
+   ========================================= */
+@media (max-width: 768px) {
+  .app-header {
+    height: 60px;
+    padding: 0 12px;
+  }
+
+  /* Compact Room ID for mobile */
+  .room-id {
+    font-size: 13px;
+    padding: 4px 8px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .room-id span {
+    display: none;
+  }
+
+  .user-badge {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  /* Make Floating Dock Scrollable horizontally */
+  .floating-dock {
+    width: 95%;
+    max-width: none;
+    padding: 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    bottom: 20px;
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .floating-dock::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
+  }
+
+  .tools-group {
+    flex-shrink: 0;
+    gap: 8px;
+  }
+
+  .slider-container {
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  .width-display {
+    display: none;
+  }
+
+  .color-preset {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+  }
+
+  .recent-swatch {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* Ensure canvas is reachable */
+  .canvas-container {
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Admin Panel Mobile */
+  .admin-panel {
+    top: 70px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+  }
+}

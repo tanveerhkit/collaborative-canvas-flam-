@@ -98,11 +98,24 @@ class CanvasManager {
     /**
      * Get mouse position relative to canvas
      */
+    /**
+     * Get mouse position relative to canvas (Normalized 0-1)
+     */
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
         return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
+            x: (e.clientX - rect.left) / this.canvas.width,
+            y: (e.clientY - rect.top) / this.canvas.height
+        };
+    }
+
+    /**
+     * Convert normalized coordinates to pixel coordinates
+     */
+    toPixelPos(normalizedPos) {
+        return {
+            x: normalizedPos.x * this.canvas.width,
+            y: normalizedPos.y * this.canvas.height
         };
     }
 
@@ -111,7 +124,7 @@ class CanvasManager {
      */
     startDrawing(e) {
         this.isDrawing = true;
-        const pos = this.getMousePos(e);
+        const pos = this.getMousePos(e); // Normalized
         this.currentPath = [pos];
         this.lastPoint = pos;
 
@@ -121,9 +134,10 @@ class CanvasManager {
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
 
-        // Draw initial point as a dot
+        // Draw initial point as a dot (convert to pixels)
+        const pixelPos = this.toPixelPos(pos);
         this.ctx.beginPath();
-        this.ctx.arc(pos.x, pos.y, this.currentWidth / 2, 0, Math.PI * 2);
+        this.ctx.arc(pixelPos.x, pixelPos.y, this.currentWidth / 2, 0, Math.PI * 2);
         this.ctx.fillStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
         this.ctx.fill();
     }
@@ -138,50 +152,34 @@ class CanvasManager {
             return;
         }
 
-        const pos = this.getMousePos(e);
+        const pos = this.getMousePos(e); // Normalized
 
         // Don't draw if point hasn't moved
         if (pos.x === this.lastPoint.x && pos.y === this.lastPoint.y) return;
 
         this.currentPath.push(pos);
 
-        // Core Smoothing Logic:
-        // Instead of drawing to the current point, we draw to the MIDPOINT between last and current.
-        // The last point serves as the control point for the quadratic curve.
-        // This ensures C1 continuity (smooth tangents) at every segment join.
+        // Convert to pixels for local rendering
+        const pixelPos = this.toPixelPos(pos);
+        const lastPixelPos = this.toPixelPos(this.lastPoint);
 
-        const midPoint = {
-            x: (this.lastPoint.x + pos.x) / 2,
-            y: (this.lastPoint.y + pos.y) / 2
+        // Setup context
+        this.ctx.lineWidth = this.currentWidth;
+        this.ctx.lineCap = 'round';
+        this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#FFFFFF' : this.currentColor;
+
+        // Draw locally using simple mid-point smoothing on PIXELS
+        const localMid = {
+            x: (lastPixelPos.x + pixelPos.x) / 2,
+            y: (lastPixelPos.y + pixelPos.y) / 2
         };
 
-        if (this.currentPath.length === 2) {
-            // Second point: just draw a line from start to the first midpoint
-            this.ctx.beginPath();
-            this.ctx.moveTo(this.currentPath[0].x, this.currentPath[0].y);
-            this.ctx.lineTo(midPoint.x, midPoint.y);
-            this.ctx.stroke();
-        } else {
-            // Third point onwards:
-            // We need to start from the *previous* midpoint.
-            // Since we don't store "lastMid" explicitly in class state to avoiddrift,
-            // we re-calculate it from the path history.
+        this.ctx.beginPath();
+        this.ctx.moveTo(lastPixelPos.x, lastPixelPos.y);
+        this.ctx.quadraticCurveTo(lastPixelPos.x, lastPixelPos.y, localMid.x, localMid.y);
+        this.ctx.stroke();
 
-            const prevPoint = this.currentPath[this.currentPath.length - 2];
-            const prevPrevPoint = this.currentPath[this.currentPath.length - 3];
-
-            const lastMid = {
-                x: (prevPrevPoint.x + prevPoint.x) / 2,
-                y: (prevPrevPoint.y + prevPoint.y) / 2
-            };
-
-            this.ctx.beginPath();
-            this.ctx.moveTo(lastMid.x, lastMid.y);
-            this.ctx.quadraticCurveTo(prevPoint.x, prevPoint.y, midPoint.x, midPoint.y);
-            this.ctx.stroke();
-        }
-
-        this.lastPoint = pos;
+        this.lastPoint = pos; // Keep lastPoint normalized
 
         // Emit cursor position while drawing (so cursor follows the drawing)
         this.emitCursorMove(e);
@@ -238,25 +236,28 @@ class CanvasManager {
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
 
+        // Convert to pixel coordinates
+        const pixelPoints = points.map(p => this.toPixelPos(p));
+
         // Draw first point
-        this.ctx.moveTo(points[0].x, points[0].y);
+        this.ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
 
         // Draw smooth path through all points
-        for (let i = 1; i < points.length - 1; i++) {
+        for (let i = 1; i < pixelPoints.length - 1; i++) {
             const midPoint = {
-                x: (points[i].x + points[i + 1].x) / 2,
-                y: (points[i].y + points[i + 1].y) / 2
+                x: (pixelPoints[i].x + pixelPoints[i + 1].x) / 2,
+                y: (pixelPoints[i].y + pixelPoints[i + 1].y) / 2
             };
 
             this.ctx.quadraticCurveTo(
-                points[i].x, points[i].y,
+                pixelPoints[i].x, pixelPoints[i].y,
                 midPoint.x, midPoint.y
             );
         }
 
         // Draw to last point
-        if (points.length > 1) {
-            const lastPoint = points[points.length - 1];
+        if (pixelPoints.length > 1) {
+            const lastPoint = pixelPoints[pixelPoints.length - 1];
             this.ctx.lineTo(lastPoint.x, lastPoint.y);
         }
 
@@ -393,12 +394,18 @@ class CanvasManager {
      * Draw remote cursor
      */
     drawRemoteCursor(x, y, color, userName) {
+        // Normalize if receiving pixel coords? No, server should relay whatever sendCursorMove sent.
+        // BUT emitCursorMove now sends normalized. So x,y are normalized.
+        const pixelPos = this.toPixelPos({ x, y });
+        const px = pixelPos.x;
+        const py = pixelPos.y;
+
         // Draw cursor indicator
         this.ctx.save();
 
         // Draw circle
         this.ctx.beginPath();
-        this.ctx.arc(x, y, 5, 0, Math.PI * 2);
+        this.ctx.arc(px, py, 5, 0, Math.PI * 2);
         this.ctx.fillStyle = color;
         this.ctx.fill();
         this.ctx.strokeStyle = '#FFFFFF';
@@ -408,16 +415,20 @@ class CanvasManager {
         // Draw user name
         this.ctx.font = '12px Arial';
         this.ctx.fillStyle = color;
-        this.ctx.fillText(userName, x + 10, y - 10);
+        this.ctx.fillText(userName, px + 10, py - 10);
 
         this.ctx.restore();
     }
 
     /**
      * Draw incremental points in real-time
+     * @param {Array} points - Array of NORMALIZED points
      */
     drawIncrementalPoints(points, color, width, tool) {
         if (points.length === 0) return;
+
+        // Convert all points to pixels
+        const pixelPoints = points.map(p => this.toPixelPos(p));
 
         this.ctx.beginPath();
         this.ctx.strokeStyle = tool === 'eraser' ? '#FFFFFF' : color;
@@ -425,38 +436,32 @@ class CanvasManager {
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
 
-        if (points.length < 3) {
+        if (pixelPoints.length < 3) {
             // Fallback for start of stroke or small updates
-            this.ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i++) {
-                this.ctx.lineTo(points[i].x, points[i].y);
+            this.ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
+            for (let i = 1; i < pixelPoints.length; i++) {
+                this.ctx.lineTo(pixelPoints[i].x, pixelPoints[i].y);
             }
             this.ctx.stroke();
         } else {
             // Smooth curve
-            // Note: points[0] might be '2nd last' from previous batch if we sliced -2
-            // So we start drawing from mid(p0, p1) which should match where we left off
-
             this.ctx.moveTo(
-                (points[0].x + points[1].x) / 2,
-                (points[0].y + points[1].y) / 2
+                (pixelPoints[0].x + pixelPoints[1].x) / 2,
+                (pixelPoints[0].y + pixelPoints[1].y) / 2
             );
 
-            for (let i = 1; i < points.length - 1; i++) {
+            for (let i = 1; i < pixelPoints.length - 1; i++) {
                 const midPoint = {
-                    x: (points[i].x + points[i + 1].x) / 2,
-                    y: (points[i].y + points[i + 1].y) / 2
+                    x: (pixelPoints[i].x + pixelPoints[i + 1].x) / 2,
+                    y: (pixelPoints[i].y + pixelPoints[i + 1].y) / 2
                 };
 
                 this.ctx.quadraticCurveTo(
-                    points[i].x, points[i].y,
+                    pixelPoints[i].x, pixelPoints[i].y,
                     midPoint.x, midPoint.y
                 );
             }
-            // For the very last segment, just line to the end? 
-            // Or better, let the next update handle the curve.
-            // But we must render something to the tip.
-            const last = points[points.length - 1];
+            const last = pixelPoints[pixelPoints.length - 1];
             this.ctx.lineTo(last.x, last.y);
 
             this.ctx.stroke();
