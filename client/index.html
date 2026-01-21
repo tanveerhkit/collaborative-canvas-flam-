@@ -53,7 +53,11 @@
       <div class="panel">
         <h3>Tools</h3>
         <div class="tool-buttons">
-          <button class="tool-btn active" data-tool="brush" title="Brush">
+          <button class="tool-btn active" data-tool="select" title="Select/Move">
+            <i class="fa-solid fa-arrow-pointer"></i>
+            <span>Select</span>
+          </button>
+          <button class="tool-btn" data-tool="brush" title="Brush">
             <i class="fa-solid fa-paintbrush"></i>
             <span>Brush</span>
           </button>
@@ -61,7 +65,29 @@
             <i class="fa-solid fa-eraser"></i>
             <span>Eraser</span>
           </button>
+          <button class="tool-btn" data-tool="rectangle" title="Rectangle">
+            <i class="fa-regular fa-square"></i>
+            <span>Rect</span>
+          </button>
+          <button class="tool-btn" data-tool="circle" title="Circle">
+            <i class="fa-regular fa-circle"></i>
+            <span>Circle</span>
+          </button>
+          <button class="tool-btn" data-tool="line" title="Line">
+            <i class="fa-solid fa-minus"></i> <!-- or slash -->
+            <span>Line</span>
+          </button>
+          <button class="tool-btn" data-tool="text" title="Text">
+            <i class="fa-solid fa-font"></i>
+            <span>Text</span>
+          </button>
+          <button class="tool-btn" data-tool="image" title="Image" id="image-btn">
+            <i class="fa-solid fa-image"></i>
+            <span>Image</span>
+          </button>
         </div>
+        <!-- Hidden File Input for Image Upload -->
+        <input type="file" id="image-upload" accept="image/*" style="display: none;">
       </div>
 
       <!-- Color Picker -->
@@ -156,6 +182,7 @@
     <!-- Canvas Area -->
     <main class="canvas-container">
       <canvas id="canvas"></canvas>
+      <canvas id="shape-preview"></canvas>
       <canvas id="cursor-overlay"></canvas>
       <div id="status" class="status"></div>
     </main>

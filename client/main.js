@@ -167,6 +167,36 @@ function setupCanvasCallbacks() {
     const EMIT_DELAY = 50; // Batch points every 50ms
     let lastSentIndex = 0;
 
+    // Handle Shape/Text Completion (optimistic update)
+    canvasManager.onShapeComplete = function (operation) {
+        // Add locally immediately (Optimistic UI)
+        // We use the ID generated in canvas.js (tempId)
+        canvasManager.addOperation(operation);
+
+        // Send to server (use dynamic type from operation)
+        wsClient.sendDrawingEvent(operation.type || 'shape', operation.data);
+    };
+
+    // Handle operation move (when user drags an image)
+    canvasManager.onOperationMove = function (operation) {
+        // Send updated position to server
+        wsClient.sendDrawingEvent('move', {
+            operationId: operation.id,
+            x: operation.data.x,
+            y: operation.data.y
+        });
+    };
+
+    // Handle operation resize (when user resizes an image)
+    canvasManager.onOperationResize = function (operation) {
+        // Send updated size to server
+        wsClient.sendDrawingEvent('resize', {
+            operationId: operation.id,
+            width: operation.data.width,
+            height: operation.data.height
+        });
+    };
+
     // Send incremental drawing points in real-time while drawing
     canvasManager.emitDrawingEvent = function () {
         if (!this.isDrawing || this.currentPath.length === 0) return;
@@ -217,9 +247,12 @@ function setupCanvasCallbacks() {
  * Setup UI event handlers
  */
 function setupUIHandlers() {
-    // Tool selection
+    // Tool selection (except Image which has special handling)
     document.querySelectorAll('.tool-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            // Skip Image button - it has its own handler for file dialog
+            if (btn.dataset.tool === 'image') return;
+
             document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             canvasManager.setTool(btn.dataset.tool);
@@ -348,6 +381,72 @@ function setupUIHandlers() {
 
         adminRedoBtn.addEventListener('click', () => {
             wsClient.socket.emit('admin-redo');
+        });
+    }
+
+    // Image Upload Handling
+    const imageBtn = document.getElementById('image-btn');
+    const imageUpload = document.getElementById('image-upload');
+    let pendingImagePosition = null; // Store position where user clicked
+
+    if (imageBtn && imageUpload) {
+        // Click image button to trigger file input (places at center)
+        imageBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            pendingImagePosition = { x: 0.5, y: 0.5 }; // Center
+            imageUpload.click();
+        });
+
+        // Set up canvas click handler for image tool
+        canvasManager.onImagePlacement = function (pos) {
+            pendingImagePosition = pos;
+            imageUpload.click();
+        };
+
+        // Handle file selection
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                alert('Please select an image file');
+                return;
+            }
+
+            // Use pending position or default to center
+            const pos = pendingImagePosition || { x: 0.5, y: 0.5 };
+            pendingImagePosition = null; // Reset
+
+            // Read file as Data URL
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const dataUrl = event.target.result;
+
+                // Create image operation at clicked position
+                const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                const operation = {
+                    type: 'image',
+                    id: tempId,
+                    data: {
+                        tempId: tempId,
+                        x: pos.x,
+                        y: pos.y,
+                        src: dataUrl,
+                        width: 0.3, // 30% of canvas width
+                        height: 0.3, // Will be adjusted to maintain aspect ratio
+                    }
+                };
+
+                // Add locally and send to server
+                canvasManager.addOperation(operation);
+                wsClient.sendDrawingEvent('image', operation.data);
+            };
+            reader.readAsDataURL(file);
+
+            // Reset input to allow same file selection
+            imageUpload.value = '';
         });
     }
 

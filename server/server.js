@@ -97,10 +97,28 @@ io.on('connection', (socket) => {
                 data: data.data
             };
 
-            // Only add complete strokes to history for undo/redo
+            // Only add complete strokes/shapes/images to history for undo/redo
             // Incremental updates are just broadcast for real-time rendering
-            if (data.type === 'draw' || data.data.isComplete) {
+            if (data.type === 'draw' || data.type === 'shape' || data.type === 'text' || data.type === 'image' || data.data.isComplete) {
                 drawingState.addOperation(operation);
+            }
+
+            // Handle move operations - update existing operation position
+            if (data.type === 'move' && data.data.operationId) {
+                const existingOp = drawingState.operations.find(op => op.id === data.data.operationId);
+                if (existingOp && existingOp.data) {
+                    existingOp.data.x = data.data.x;
+                    existingOp.data.y = data.data.y;
+                }
+            }
+
+            // Handle resize operations - update existing operation size
+            if (data.type === 'resize' && data.data.operationId) {
+                const existingOp = drawingState.operations.find(op => op.id === data.data.operationId);
+                if (existingOp && existingOp.data) {
+                    existingOp.data.width = data.data.width;
+                    existingOp.data.height = data.data.height;
+                }
             }
 
             // Broadcast to all users in room (including sender for confirmation)
