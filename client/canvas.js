@@ -43,17 +43,11 @@ class CanvasManager {
         const container = this.canvas.parentElement;
         const rect = container.getBoundingClientRect();
 
-        // Store current canvas content
-        const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-
         // Resize canvas
         this.canvas.width = rect.width;
         this.canvas.height = rect.height;
 
-        // Restore canvas content
-        this.ctx.putImageData(imageData, 0, 0);
-
-        // Redraw all operations
+        // Redraw all operations (resolution independent)
         this.redrawCanvas();
     }
 
