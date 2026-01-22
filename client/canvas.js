@@ -1344,6 +1344,7 @@ class CanvasManager {
                 if (!layer || !this.eraserMaskCtx || !op.data || !op.data.points) return;
 
                 const scaledWidth = (op.data.width || 2) * this.contentTransform.scale;
+                const strokeWidth = scaledWidth * zoom;
                 const pixelPoints = op.data.points.map(point => {
                     const world = this.toPixelPos(point);
                     return {
@@ -1364,7 +1365,7 @@ class CanvasManager {
                     if (pt.y > maxY) maxY = pt.y;
                 }
 
-                const padding = scaledWidth / 2 + 2;
+                const padding = strokeWidth / 2 + 2;
                 const boxX = Math.max(0, Math.floor(minX - padding));
                 const boxY = Math.max(0, Math.floor(minY - padding));
                 const boxMaxX = Math.min(this.canvas.width, Math.ceil(maxX + padding));
@@ -1382,7 +1383,7 @@ class CanvasManager {
                 this.eraserMaskCtx.save();
                 this.eraserMaskCtx.translate(-boxX, -boxY);
                 this.eraserMaskCtx.strokeStyle = '#000000';
-                this.eraserMaskCtx.lineWidth = scaledWidth;
+                this.eraserMaskCtx.lineWidth = strokeWidth;
                 this.eraserMaskCtx.lineCap = 'round';
                 this.eraserMaskCtx.lineJoin = 'round';
                 this.drawFreehandPixelPath(this.eraserMaskCtx, pixelPoints);
@@ -1393,13 +1394,14 @@ class CanvasManager {
                 const userData = userImage.data;
                 const maskData = maskImage.data;
 
+                const alphaThreshold = 1;
                 for (let i = 0; i < maskData.length; i += 4) {
                     const eraserAlpha = maskData[i + 3];
                     if (eraserAlpha && userData[i + 3]) {
                         maskData[i] = 0;
                         maskData[i + 1] = 0;
                         maskData[i + 2] = 0;
-                        maskData[i + 3] = eraserAlpha;
+                        maskData[i + 3] = eraserAlpha > alphaThreshold && userData[i + 3] > alphaThreshold ? 255 : 0;
                     } else {
                         maskData[i + 3] = 0;
                     }
