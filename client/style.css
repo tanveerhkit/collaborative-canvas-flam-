@@ -292,7 +292,7 @@ body {
   /* Allow button to stick out */
 
   /* Transition for collapsing */
-  transition: transform var(--transition-spring);
+  transition: all var(--transition-spring);
   z-index: 100;
 }
 
@@ -316,8 +316,10 @@ body {
 }
 
 .sidebar.collapsed {
-  transform: translateX(calc(-100% - 24px));
-  /* Move fully off-screen */
+  /* Desktop: Use margin to shrink width effectively so canvas expands */
+  margin-left: calc(-1 * var(--sidebar-width));
+  transform: none;
+  /* Reset transform for desktop */
 }
 
 /* Sidebar Toggle Button */
@@ -344,12 +346,13 @@ body {
 }
 
 .sidebar.collapsed .sidebar-toggle {
-  right: -40px;
-  /* Push out further when collapsed so it's visible */
-  transform: translateX(0) rotate(180deg);
-  /* Rotate arrow */
+  right: -16px;
+  /* Keep it attached to the edge */
+  /* Since sidebar moves left with margin, the button moves with it.
+     The right edge of sidebar is now at the left edge of container.
+     So button (right: -16px) is at x=16px. Perfect. */
+  transform: translateX(50%) rotate(180deg);
   background: var(--primary);
-  /* Highlight when collapsed */
   color: white;
 }
 
@@ -359,7 +362,7 @@ body {
 }
 
 .sidebar.collapsed .sidebar-toggle:hover {
-  transform: rotate(180deg) scale(1.1);
+  transform: translateX(50%) rotate(180deg) scale(1.1);
   color: white;
 }
 
@@ -1074,6 +1077,7 @@ body {
   }
 
   /* 4. Sidebar -> Floating Bottom Dock! */
+  /* 4. Sidebar -> Floating Bottom Dock! */
   .sidebar {
     position: fixed;
     bottom: 20px;
@@ -1081,23 +1085,95 @@ body {
     right: 12px;
     width: auto;
     max-height: 25vh;
-    /* Limit height */
+    padding: 0;
+    /* Remove padding from container */
+    overflow: visible;
+    /* CRITICAL: Allow button to display outside */
+
+    background: transparent;
+    /* Move background to content */
+    border: none;
+    box-shadow: none;
 
     /* Layout */
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    gap: 16px;
-    padding: 16px;
-    z-index: 100;
+    flex-direction: column;
+    /* Keep column so button can be top/bottom? No, create shell. */
+    display: flex;
+  }
 
-    /* Improve Glass for Dark Backgrounds */
+  /* Style the inner content for mobile */
+  .sidebar-content {
+    /* Dock styling moved here */
     background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: 24px;
     box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.1);
+
+    padding: 16px;
+    gap: 16px;
+
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    width: 100%;
+
+    /* Ensure scrollbar works */
+    pointer-events: auto;
+  }
+
+  /* Mobile Toggle Button - Positioned on Top Center */
+  .sidebar-toggle {
+    top: -20px;
+    /* Stick out the top */
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%) rotate(90deg);
+    /* Point down initially */
+    margin-left: 0;
+
+    width: 40px;
+    height: 24px;
+    /* Pill shape */
+    border-radius: 12px 12px 0 0;
+
+    background: white;
+    border-bottom: none;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+
+    z-index: 99;
+    /* Below content but above others */
+  }
+
+  /* Mobile Collapsed State */
+  .sidebar.collapsed {
+    /* Move down until hidden, but keep button peaking? */
+    /* If we translate 100%, the whole sidebar moves down by its height. */
+    /* We want the button to stay at bottom of screen. */
+    /* Let's try simple translate for now. */
+    transform: translateY(100%);
+    margin-left: 0;
+    /* Reset desktop margin */
+  }
+
+  /* Fix button rotation when collapsed */
+  .sidebar.collapsed .sidebar-toggle {
+    transform: translateX(-50%) rotate(-90deg) translateY(100%);
+    /* Point up */
+    right: auto;
+    /* Reset desktop override */
+
+    /* When sidebar is collapsed (down), the button (top of sidebar) is now at the bottom edge. */
+    /* We need to pull it UP so it's visible. */
+    top: -46px;
+    /* Adjust to peek out */
+  }
+
+  /* Improve Glass for Dark Backgrounds */
+  body.dark-theme .sidebar-content {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 
   /* Make panels horizontal */
@@ -1147,10 +1223,7 @@ body {
   }
 
   /* Dark Theme Adjustments for Dock */
-  body.dark-theme .sidebar {
-    background: rgba(30, 41, 59, 0.9);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
+
 }
 
 /* Extra Small Screens */
