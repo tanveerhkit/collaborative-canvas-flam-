@@ -256,6 +256,15 @@ function setupCanvasCallbacks() {
  * Setup UI event handlers
  */
 function setupUIHandlers() {
+    // Sidebar Toggle
+    const sidebar = document.getElementById('sidebar');
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    if (sidebar && sidebarToggle) {
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+    }
+
     // Tool selection (except Image which has special handling)
     document.querySelectorAll('.tool-btn').forEach(btn => {
         btn.addEventListener('click', () => {
