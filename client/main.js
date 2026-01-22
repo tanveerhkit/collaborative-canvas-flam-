@@ -253,17 +253,115 @@ function setupCanvasCallbacks() {
 }
 
 /**
+ * Setup Sidebar Touch Gestures (Drag to Open/Close)
+ */
+function setupSidebarGestures() {
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+
+    if (!sidebar || !toggleBtn) return;
+
+    // Click/Tap Toggle (Desktop & Mobile Tap)
+    toggleBtn.addEventListener('click', (e) => {
+        // Prevent click if it was a drag (handled in touchend)
+        if (toggleBtn.getAttribute('data-dragged') === 'true') return;
+        sidebar.classList.toggle('collapsed');
+    });
+
+    // Valid swipe threshold (px)
+    const DRAG_THRESHOLD = 30;
+
+    let startX = 0;
+    let startY = 0;
+    let initialTranslateY = 0; // For mobile
+    let isDragging = false;
+    let isMobile = false;
+
+    toggleBtn.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        isMobile = window.innerWidth <= 900;
+        toggleBtn.setAttribute('data-dragged', 'false');
+
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY; // Visual viewport Y
+
+        // Disable transition for instant follow
+        sidebar.style.transition = 'none';
+
+        // Determine starting state (Open or Collapsed)
+        const isCollapsed = sidebar.classList.contains('collapsed');
+
+        // 0% (Open) to 100% (Closed)
+        initialTranslateY = isCollapsed ? 100 : 0;
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+
+        if (isMobile) {
+            // Mobile: Drag Vertical
+            const deltaY = e.touches[0].clientY - startY;
+
+            // Sidebar height for percentage calculation
+            const height = sidebar.offsetHeight;
+
+            // Calculate drag as percentage of height
+            let percentDelta = (deltaY / height) * 100;
+
+            // Apply new position (Starts at initialTranslateY)
+            let currentPercent = initialTranslateY + percentDelta;
+
+            // Clamp between 0% (Open) and 100% (Closed)
+            // Allow slight overdrag for resistance feel if desired, but clamping is safer
+            currentPercent = Math.max(0, Math.min(100, currentPercent));
+
+            // Apply Transform
+            // Must preserve X centering: translate3d(-50%, Y%, 0)
+            sidebar.style.transform = `translate3d(-50%, ${currentPercent}%, 0)`;
+
+            // Flag as intentional drag if moved enough
+            if (Math.abs(deltaY) > 5) {
+                toggleBtn.setAttribute('data-dragged', 'true');
+            }
+        }
+        // Desktop drag could be added here if needed
+    }, { passive: false });
+
+    window.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        // Restore properties
+        sidebar.style.transition = '';
+        sidebar.style.transform = ''; // Clear inline to let class take over
+
+        // Determine final state based on drag distance
+        if (isMobile && toggleBtn.getAttribute('data-dragged') === 'true') {
+            const endY = e.changedTouches[0].clientY;
+            const distY = endY - startY;
+
+            const isCollapsed = sidebar.classList.contains('collapsed');
+
+            // If dragging down (positive), we want to close
+            if (distY > DRAG_THRESHOLD && !isCollapsed) {
+                sidebar.classList.add('collapsed');
+            }
+            // If dragging up (negative), we want to open
+            else if (distY < -DRAG_THRESHOLD && isCollapsed) {
+                sidebar.classList.remove('collapsed');
+            }
+            // If not moved enough, revert to original state (handled by clearing inline transform)
+        }
+    });
+}
+
+
+/**
  * Setup UI event handlers
  */
 function setupUIHandlers() {
-    // Sidebar Toggle
-    const sidebar = document.getElementById('sidebar');
-    const sidebarToggle = document.getElementById('sidebar-toggle');
-    if (sidebar && sidebarToggle) {
-        sidebarToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-        });
-    }
+    // Sidebar Toggle & Gestures
+    setupSidebarGestures();
 
     // Tool selection (except Image which has special handling)
     document.querySelectorAll('.tool-btn').forEach(btn => {
