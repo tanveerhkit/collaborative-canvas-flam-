@@ -217,6 +217,12 @@ class CanvasManager {
         if (!points || points.length === 0) return;
         const pixelPoints = points.map(p => this.toPixelPos(p));
 
+        this.drawFreehandPixelPath(ctx, pixelPoints);
+    }
+
+    drawFreehandPixelPath(ctx, pixelPoints) {
+        if (!pixelPoints || pixelPoints.length === 0) return;
+
         ctx.beginPath();
         ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
 
@@ -1337,41 +1343,82 @@ class CanvasManager {
             if (isEraser) {
                 if (!layer || !this.eraserMaskCtx || !op.data || !op.data.points) return;
 
-                // Build eraser mask
-                this.eraserMaskCtx.setTransform(1, 0, 0, 1, 0, 0);
-                this.eraserMaskCtx.clearRect(0, 0, this.eraserMaskCanvas.width, this.eraserMaskCanvas.height);
-                this.eraserMaskCtx.save();
-                this.eraserMaskCtx.setTransform(zoom, 0, 0, zoom, panX, panY);
-                this.eraserMaskCtx.strokeStyle = '#000000';
                 const scaledWidth = (op.data.width || 2) * this.contentTransform.scale;
+                const pixelPoints = op.data.points.map(point => {
+                    const world = this.toPixelPos(point);
+                    return {
+                        x: world.x * zoom + panX,
+                        y: world.y * zoom + panY
+                    };
+                });
+
+                let minX = Infinity;
+                let minY = Infinity;
+                let maxX = -Infinity;
+                let maxY = -Infinity;
+                for (let i = 0; i < pixelPoints.length; i++) {
+                    const pt = pixelPoints[i];
+                    if (pt.x < minX) minX = pt.x;
+                    if (pt.y < minY) minY = pt.y;
+                    if (pt.x > maxX) maxX = pt.x;
+                    if (pt.y > maxY) maxY = pt.y;
+                }
+
+                const padding = scaledWidth / 2 + 2;
+                const boxX = Math.max(0, Math.floor(minX - padding));
+                const boxY = Math.max(0, Math.floor(minY - padding));
+                const boxMaxX = Math.min(this.canvas.width, Math.ceil(maxX + padding));
+                const boxMaxY = Math.min(this.canvas.height, Math.ceil(maxY + padding));
+                const boxW = Math.max(0, boxMaxX - boxX);
+                const boxH = Math.max(0, boxMaxY - boxY);
+
+                if (!boxW || !boxH) return;
+
+                this.eraserMaskCanvas.width = boxW;
+                this.eraserMaskCanvas.height = boxH;
+
+                this.eraserMaskCtx.setTransform(1, 0, 0, 1, 0, 0);
+                this.eraserMaskCtx.clearRect(0, 0, boxW, boxH);
+                this.eraserMaskCtx.save();
+                this.eraserMaskCtx.translate(-boxX, -boxY);
+                this.eraserMaskCtx.strokeStyle = '#000000';
                 this.eraserMaskCtx.lineWidth = scaledWidth;
                 this.eraserMaskCtx.lineCap = 'round';
                 this.eraserMaskCtx.lineJoin = 'round';
-                this.drawFreehandPath(this.eraserMaskCtx, op.data.points);
+                this.drawFreehandPixelPath(this.eraserMaskCtx, pixelPoints);
                 this.eraserMaskCtx.restore();
 
-                // Mask eraser to user's layer only
-                this.eraserMaskCtx.save();
-                this.eraserMaskCtx.globalCompositeOperation = 'destination-in';
-                this.eraserMaskCtx.drawImage(layer.canvas, 0, 0);
-                this.eraserMaskCtx.restore();
+                const userImage = layer.ctx.getImageData(boxX, boxY, boxW, boxH);
+                const maskImage = this.eraserMaskCtx.getImageData(0, 0, boxW, boxH);
+                const userData = userImage.data;
+                const maskData = maskImage.data;
+
+                for (let i = 0; i < maskData.length; i += 4) {
+                    const eraserAlpha = maskData[i + 3];
+                    if (eraserAlpha && userData[i + 3]) {
+                        maskData[i] = 0;
+                        maskData[i + 1] = 0;
+                        maskData[i + 2] = 0;
+                        maskData[i + 3] = eraserAlpha;
+                    } else {
+                        maskData[i + 3] = 0;
+                    }
+                }
+
+                this.eraserMaskCtx.putImageData(maskImage, 0, 0);
 
                 // Apply masked erase to main canvas
                 this.ctx.save();
                 this.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 this.ctx.globalCompositeOperation = 'destination-out';
-                this.ctx.drawImage(this.eraserMaskCanvas, 0, 0);
+                this.ctx.drawImage(this.eraserMaskCanvas, boxX, boxY);
                 this.ctx.restore();
 
                 // Apply erase to user's layer for future masks
                 layer.ctx.save();
-                layer.ctx.setTransform(zoom, 0, 0, zoom, panX, panY);
+                layer.ctx.setTransform(1, 0, 0, 1, 0, 0);
                 layer.ctx.globalCompositeOperation = 'destination-out';
-                layer.ctx.strokeStyle = '#000000';
-                layer.ctx.lineWidth = scaledWidth;
-                layer.ctx.lineCap = 'round';
-                layer.ctx.lineJoin = 'round';
-                this.drawFreehandPath(layer.ctx, op.data.points);
+                layer.ctx.drawImage(this.eraserMaskCanvas, boxX, boxY);
                 layer.ctx.restore();
                 return;
             }
