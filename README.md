@@ -4,6 +4,16 @@
 
 > **Experience seamless creativity.** A real-time collaborative drawing platform where multiple users can sketch, brainstorm, and create together instantly.
 
+## Feature Overview
+
+![Feature Overview](docs/assets/feature_overview.png)
+
+1. Added features for selecting upto 7 recent colors
+2. Added shapes and Text feature
+3. User can add image and also drag them and zoom in and zoom out
+4. Complete mobile touch responsive
+5. Very large canvas area
+
 ## ✨ Key Features
 
 ### 🚀 Real-Time Collaboration
@@ -62,3 +72,4 @@
 
 ---
 *Built with ❤️ for FLAM Assignment*
+
