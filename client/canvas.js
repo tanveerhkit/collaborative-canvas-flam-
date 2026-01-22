@@ -37,6 +37,7 @@ class CanvasManager {
         this.selectedOperation = null; // Currently selected operation (for move)
         this.isDragging = false;
         this.dragOffset = { x: 0, y: 0 };
+        this.currentUserId = null; // Restrict manipulation to own images
 
         // Image cache for hit detection and rendering
         this.imageCache = new Map(); // operationId -> loaded Image object
@@ -53,6 +54,13 @@ class CanvasManager {
         // Setup canvas
         this.setupCanvas();
         this.setupEventListeners();
+    }
+
+    /**
+     * Set current user ID to restrict manipulation
+     */
+    setUserId(userId) {
+        this.currentUserId = userId;
     }
 
     /**
@@ -1316,6 +1324,11 @@ class CanvasManager {
 
                 // Hit test
                 if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) {
+                    // Check ownership
+                    if (this.currentUserId && op.userId !== this.currentUserId) {
+                        console.log('Found image but belongs to another user:', op.userId);
+                        return null;
+                    }
                     console.log('HIT! Selected image:', op.id);
                     return op;
                 }
@@ -1396,6 +1409,9 @@ class CanvasManager {
             if (op.undone) continue;
 
             if (op.type === 'image') {
+                // Check ownership before checking corners
+                if (this.currentUserId && op.userId !== this.currentUserId) continue;
+
                 const corner = this.getCornerAtPosition(pos, op);
                 if (corner) {
                     console.log('Corner found:', corner, 'for image:', op.id);

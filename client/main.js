@@ -53,6 +53,11 @@ function setupWebSocketCallbacks() {
         document.getElementById('user-name').textContent = data.userName;
         document.getElementById('user-color').style.backgroundColor = data.color;
 
+        // Set user ID in canvas manager for permission checks
+        if (canvasManager) {
+            canvasManager.setUserId(data.userId);
+        }
+
         // Show admin panel if user is admin
         const adminPanel = document.getElementById('admin-panel');
         if (data.isAdmin) {
