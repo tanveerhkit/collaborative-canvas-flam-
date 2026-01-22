@@ -4,6 +4,7 @@ let canvasManager;
 let wsClient;
 let remoteCursors = new Map(); // userId -> {x, y, color, userName}
 let cursorUpdateInterval;
+let currentUserId; // Current user's ID for admin checks
 
 
 async function init() {
@@ -52,6 +53,9 @@ function setupWebSocketCallbacks() {
     wsClient.onUserInfo = (data) => {
         document.getElementById('user-name').textContent = data.userName;
         document.getElementById('user-color').style.backgroundColor = data.color;
+
+        // Save current user ID globally
+        currentUserId = data.userId;
 
         // Set user ID in canvas manager for permission checks
         if (canvasManager) {

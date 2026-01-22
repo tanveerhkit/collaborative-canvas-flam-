@@ -1129,6 +1129,9 @@ class CanvasManager {
             }
             this.ctx.restore();
         }
+
+        // Ensure full redraw (safeguard for layering/z-index consistency)
+        this.redrawCanvas();
     }
 
     /**
