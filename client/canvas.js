@@ -858,62 +858,77 @@ class CanvasManager {
             const { x, y, src, width, height } = data;
             const pixelPos = this.toPixelPos({ x, y });
 
+            // Check cache
+            let img = this.imageCache.get(src);
+            if (!img) {
+                img = new Image();
+                img.src = src;
+                this.imageCache.set(src, img); // Cache by SRC or ID? ID is better if src changes but usually src is unique content. Let's use ID if available or Src.
+                // Actually, let's use the operation ID to key the cache as typically done
+                if (operation.id) {
+                    this.imageCache.set(operation.id, img);
+                }
+
+                img.onload = () => {
+                    this.redrawCanvas();
+                }
+            }
+
+            // If strictly using ID for cache (from previous code snippets which hinted at imageCache usage), let's align.
+            // But here I'll use operation.id for consistency if possible.
+            // The previous code didn't use cache at all in this block.
+            // Let's rely on operation.id.
+            if (operation.id && !this.imageCache.has(operation.id)) {
+                this.imageCache.set(operation.id, img);
+            }
+
+            if (!img.complete) return;
+
             // Calculate pixel dimensions
             const imgWidth = width * this.canvas.width;
             const imgHeight = height * this.canvas.height;
 
-            // Center the image at the position
-            const drawX = pixelPos.x - imgWidth / 2;
-            const drawY = pixelPos.y - imgHeight / 2;
+            // Maintain aspect ratio
+            const aspectRatio = img.width / img.height;
+            let finalWidth = imgWidth;
+            let finalHeight = imgWidth / aspectRatio;
 
-            // Create image and draw
-            const img = new Image();
-            const self = this;
+            if (finalHeight > imgHeight) {
+                finalHeight = imgHeight;
+                finalWidth = imgHeight * aspectRatio;
+            }
+
+            const finalX = pixelPos.x - finalWidth / 2;
+            const finalY = pixelPos.y - finalHeight / 2;
+
+            this.ctx.drawImage(img, finalX, finalY, finalWidth, finalHeight);
+
+            // Draw selection border if selected
             const isSelected = this.selectedOperation && this.selectedOperation.id === operation.id;
+            if (isSelected) {
+                this.ctx.save();
+                this.ctx.strokeStyle = '#6366f1';
+                this.ctx.lineWidth = 3 / this.camera.zoom; // Scale line width
+                this.ctx.setLineDash([5 / this.camera.zoom, 5 / this.camera.zoom]); // Scale dash
+                this.ctx.strokeRect(finalX, finalY, finalWidth, finalHeight);
 
-            img.onload = () => {
-                // Maintain aspect ratio
-                const aspectRatio = img.width / img.height;
-                let finalWidth = imgWidth;
-                let finalHeight = imgWidth / aspectRatio;
+                // Draw corner handles
+                this.ctx.setLineDash([]);
+                this.ctx.fillStyle = '#6366f1';
+                // Fixed pixel size in screen space requires scaling inversely by zoom
+                const handlePixelSize = 12 / this.camera.zoom;
 
-                if (finalHeight > imgHeight) {
-                    finalHeight = imgHeight;
-                    finalWidth = imgHeight * aspectRatio;
-                }
+                // TL
+                this.ctx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                // TR
+                this.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                // BL
+                this.ctx.fillRect(finalX - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                // BR
+                this.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
 
-                const finalX = pixelPos.x - finalWidth / 2;
-                const finalY = pixelPos.y - finalHeight / 2;
-
-                self.ctx.drawImage(img, finalX, finalY, finalWidth, finalHeight);
-
-                // Draw selection border if selected
-                if (isSelected) {
-                    self.ctx.save();
-                    self.ctx.strokeStyle = '#6366f1';
-                    self.ctx.lineWidth = 3;
-                    self.ctx.setLineDash([5, 5]);
-                    self.ctx.strokeRect(finalX - 2, finalY - 2, finalWidth + 4, finalHeight + 4);
-
-                    // Draw corner handles
-                    self.ctx.setLineDash([]);
-                    self.ctx.fillStyle = '#6366f1';
-                    // Use a fixed pixel size for handles, but scaled slightly if zoomed
-                    const handlePixelSize = 16;
-
-                    // TL
-                    self.ctx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
-                    // TR
-                    self.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
-                    // BL
-                    self.ctx.fillRect(finalX - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
-                    // BR
-                    self.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
-
-                    self.ctx.restore();
-                }
-            };
-            img.src = src;
+                this.ctx.restore();
+            }
             return;
         }
 
@@ -1432,14 +1447,14 @@ class CanvasManager {
 
             // Draw selection border
             this.previewCtx.strokeStyle = '#6366f1';
-            this.previewCtx.lineWidth = 3;
-            this.previewCtx.setLineDash([5, 5]);
-            this.previewCtx.strokeRect(finalX - 2, finalY - 2, finalWidth + 4, finalHeight + 4);
+            this.previewCtx.lineWidth = 3 / this.camera.zoom;
+            this.previewCtx.setLineDash([5 / this.camera.zoom, 5 / this.camera.zoom]);
+            this.previewCtx.strokeRect(finalX, finalY, finalWidth, finalHeight);
 
             // Draw corner handles
             this.previewCtx.setLineDash([]);
             this.previewCtx.fillStyle = '#6366f1';
-            const handlePixelSize = 16;
+            const handlePixelSize = 12 / this.camera.zoom;
 
             // TL
             this.previewCtx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
