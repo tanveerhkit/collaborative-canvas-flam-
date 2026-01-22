@@ -46,6 +46,7 @@ class CanvasManager {
         // Reference space for consistent rendering across resizes
         this.referenceSize = { width: 0, height: 0 };
         this.contentTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+        this.referenceLocked = false;
         this.resizeObserver = null;
         this.resizeRaf = 0;
 
@@ -146,7 +147,9 @@ class CanvasManager {
             this.activeStrokes.size > 0 ||
             this.pendingStrokeCount > 0 ||
             this.isDrawing;
-        if (!hasReference || !hasContent) {
+        if (!hasReference) {
+            this.referenceSize = { width: nextWidth, height: nextHeight };
+        } else if (!hasContent && !this.referenceLocked) {
             this.referenceSize = { width: nextWidth, height: nextHeight };
         }
 
@@ -170,6 +173,16 @@ class CanvasManager {
         this.contentTransform.scale = safeScale;
         this.contentTransform.offsetX = (this.canvas.width - refWidth * safeScale) / 2;
         this.contentTransform.offsetY = (this.canvas.height - refHeight * safeScale) / 2;
+    }
+
+    setReferenceSize(width, height, lock = true) {
+        if (!width || !height) return;
+        this.referenceSize = { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)) };
+        if (lock) {
+            this.referenceLocked = true;
+        }
+        this.updateContentTransform();
+        this.redrawCanvas();
     }
 
     resizeUserLayers(width, height) {

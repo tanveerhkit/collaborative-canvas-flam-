@@ -12,6 +12,7 @@ class WebSocketClient {
         this.userId = null;
         this.userName = null;
         this.userColor = null;
+        this.referenceSize = null;
 
         // Event batching
         this.eventBatch = [];
@@ -34,6 +35,7 @@ class WebSocketClient {
         this.onKicked = null;
         this.onThemeChange = null;
         this.onAdminPromoted = null;
+        this.onReferenceSize = null;
         this.onConnected = null;
         this.onDisconnected = null;
     }
@@ -154,6 +156,11 @@ class WebSocketClient {
         this.socket.on('admin-promoted', (data) => {
             if (this.onAdminPromoted) this.onAdminPromoted(data);
         });
+
+        // Reference size for consistent rendering
+        this.socket.on('reference-size', (data) => {
+            if (this.onReferenceSize) this.onReferenceSize(data);
+        });
     }
 
     /**
@@ -175,10 +182,26 @@ class WebSocketClient {
     sendDrawingEvent(type, data) {
         if (!this.connected) return;
 
+        let payloadData = data || {};
+        if (this.referenceSize && !payloadData.referenceSize) {
+            payloadData = { ...payloadData, referenceSize: this.referenceSize };
+        }
+
         this.socket.emit('drawing-event', {
             type: type,
-            data: data
+            data: payloadData
         });
+    }
+
+    /**
+     * Set reference size for consistent coordinate mapping
+     */
+    setReferenceSize(referenceSize) {
+        if (!referenceSize || !referenceSize.width || !referenceSize.height) return;
+        this.referenceSize = {
+            width: referenceSize.width,
+            height: referenceSize.height
+        };
     }
 
     /**

@@ -8,6 +8,7 @@ class DrawingState {
     this.roomId = roomId;
     this.operations = []; // All drawing operations
     this.currentIndex = -1; // Current position in operation history
+    this.referenceSize = null;
   }
 
   /**
@@ -124,7 +125,8 @@ class DrawingState {
   getOperationHistory() {
     return {
       operations: this.operations,
-      currentIndex: this.currentIndex
+      currentIndex: this.currentIndex,
+      referenceSize: this.referenceSize
     };
   }
 
@@ -134,6 +136,7 @@ class DrawingState {
   restoreFromHistory(history) {
     this.operations = history.operations;
     this.currentIndex = history.currentIndex;
+    this.referenceSize = history.referenceSize || null;
   }
 
   /**

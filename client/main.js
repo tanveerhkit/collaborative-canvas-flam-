@@ -6,6 +6,14 @@ let remoteCursors = new Map(); // userId -> {x, y, color, userName}
 let cursorUpdateInterval;
 let currentUserId; // Current user's ID for admin checks
 
+function sendDrawingEvent(type, data) {
+    if (!wsClient) return;
+    if (canvasManager) {
+        wsClient.setReferenceSize(canvasManager.referenceSize);
+    }
+    wsClient.sendDrawingEvent(type, data);
+}
+
 
 async function init() {
     // Get room ID from URL or generate new one
@@ -29,6 +37,7 @@ async function init() {
 
     // Initialize WebSocket
     wsClient = new WebSocketClient(window.location.origin);
+    wsClient.setReferenceSize(canvasManager.referenceSize);
 
     try {
         await wsClient.connect();
@@ -73,6 +82,15 @@ function setupWebSocketCallbacks() {
     };
 
     wsClient.onOperationHistory = (history) => {
+        if (history.referenceSize && history.referenceSize.width && history.referenceSize.height) {
+            canvasManager.referenceSize = {
+                width: history.referenceSize.width,
+                height: history.referenceSize.height
+            };
+            canvasManager.referenceLocked = true;
+            canvasManager.updateContentTransform();
+            wsClient.setReferenceSize(history.referenceSize);
+        }
         canvasManager.loadOperationHistory(history);
     };
 
@@ -165,6 +183,13 @@ function setupWebSocketCallbacks() {
         // Update the isAdmin flag on wsClient
         wsClient.isAdmin = true;
     };
+
+    wsClient.onReferenceSize = (data) => {
+        if (data && data.width && data.height) {
+            canvasManager.setReferenceSize(data.width, data.height, true);
+            wsClient.setReferenceSize(data);
+        }
+    };
 }
 
 /**
@@ -188,13 +213,13 @@ function setupCanvasCallbacks() {
         canvasManager.addOperation(operation);
 
         // Send to server (use dynamic type from operation)
-        wsClient.sendDrawingEvent(operation.type || 'shape', operation.data);
+        sendDrawingEvent(operation.type || 'shape', operation.data);
     };
 
     // Handle operation move (when user drags an image)
     canvasManager.onOperationMove = function (operation) {
         // Send updated position to server
-        wsClient.sendDrawingEvent('move', {
+        sendDrawingEvent('move', {
             operationId: operation.id,
             x: operation.data.x,
             y: operation.data.y
@@ -204,7 +229,7 @@ function setupCanvasCallbacks() {
     // Handle operation resize (when user resizes an image)
     canvasManager.onOperationResize = function (operation) {
         // Send updated size to server
-        wsClient.sendDrawingEvent('resize', {
+        sendDrawingEvent('resize', {
             operationId: operation.id,
             width: operation.data.width,
             height: operation.data.height
@@ -225,7 +250,7 @@ function setupCanvasCallbacks() {
         // Send only new points since last emit (incremental streaming)
         const newPoints = this.currentPath.slice(lastSentIndex);
         if (newPoints.length > 0) {
-            wsClient.sendDrawingEvent('draw-incremental', {
+            sendDrawingEvent('draw-incremental', {
                 points: newPoints,
                 color: this.currentColor,
                 width: this.getReferenceStrokeWidth(),
@@ -258,7 +283,7 @@ function setupCanvasCallbacks() {
             });
 
             // Send final complete stroke to ensure all points are received
-            wsClient.sendDrawingEvent('draw', data);
+            sendDrawingEvent('draw', data);
         }
         // Reset for next stroke
         lastSentIndex = 0;
@@ -267,7 +292,7 @@ function setupCanvasCallbacks() {
     canvasManager.emitShapePreview = function (data) {
         if (!data) return;
         if (data.phase === 'end') {
-            wsClient.sendDrawingEvent('shape-preview', { phase: 'end' });
+            sendDrawingEvent('shape-preview', { phase: 'end' });
             return;
         }
 
@@ -275,13 +300,13 @@ function setupCanvasCallbacks() {
         if (now - lastShapePreviewTime < PREVIEW_DELAY) return;
         lastShapePreviewTime = now;
 
-        wsClient.sendDrawingEvent('shape-preview', data);
+        sendDrawingEvent('shape-preview', data);
     };
 
     canvasManager.emitMovePreview = function (data) {
         if (!data || !data.operationId) return;
         if (data.phase === 'end') {
-            wsClient.sendDrawingEvent('move-preview', {
+            sendDrawingEvent('move-preview', {
                 operationId: data.operationId,
                 phase: 'end'
             });
@@ -292,7 +317,7 @@ function setupCanvasCallbacks() {
         if (now - lastMovePreviewTime < PREVIEW_DELAY) return;
         lastMovePreviewTime = now;
 
-        wsClient.sendDrawingEvent('move-preview', data);
+        sendDrawingEvent('move-preview', data);
     };
 
     canvasManager.emitTextPreview = function (data) {
@@ -303,7 +328,7 @@ function setupCanvasCallbacks() {
                 textPreviewTimer = null;
             }
             pendingTextPreview = null;
-            wsClient.sendDrawingEvent('text-preview', { phase: 'end' });
+            sendDrawingEvent('text-preview', { phase: 'end' });
             return;
         }
 
@@ -314,7 +339,7 @@ function setupCanvasCallbacks() {
 
         textPreviewTimer = setTimeout(() => {
             if (pendingTextPreview) {
-                wsClient.sendDrawingEvent('text-preview', pendingTextPreview);
+                sendDrawingEvent('text-preview', pendingTextPreview);
             }
             textPreviewTimer = null;
         }, 80);
@@ -662,7 +687,7 @@ function setupUIHandlers() {
 
                     // Add locally and send to server
                     canvasManager.addOperation(operation);
-                    wsClient.sendDrawingEvent('image', operation.data);
+                    sendDrawingEvent('image', operation.data);
                 };
                 img.src = event.target.result;
             };

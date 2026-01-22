@@ -86,6 +86,17 @@ io.on('connection', (socket) => {
             if (!currentRoom || !currentUser) return;
 
             const drawingState = roomManager.getDrawingState(currentRoom);
+            const referenceSize = data.data && data.data.referenceSize;
+            if (!drawingState.referenceSize &&
+                referenceSize &&
+                referenceSize.width &&
+                referenceSize.height) {
+                drawingState.referenceSize = {
+                    width: referenceSize.width,
+                    height: referenceSize.height
+                };
+                io.to(currentRoom).emit('reference-size', drawingState.referenceSize);
+            }
 
             // Add operation to history
             const operation = {
