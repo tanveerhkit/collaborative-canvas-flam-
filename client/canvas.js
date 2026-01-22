@@ -1325,7 +1325,9 @@ class CanvasManager {
                 // Hit test
                 if (pos.x >= left && pos.x <= right && pos.y >= top && pos.y <= bottom) {
                     // Check ownership
-                    if (this.currentUserId && op.userId !== this.currentUserId) {
+                    // Only block if image HAS a userId and it doesn't match current user
+                    // (Allows editing local optimistic ops that might miss ID or legacy ops)
+                    if (this.currentUserId && op.userId && op.userId !== this.currentUserId) {
                         console.log('Found image but belongs to another user:', op.userId);
                         return null;
                     }
@@ -1410,7 +1412,8 @@ class CanvasManager {
 
             if (op.type === 'image') {
                 // Check ownership before checking corners
-                if (this.currentUserId && op.userId !== this.currentUserId) continue;
+                // Only block if image HAS a userId and it doesn't match current user
+                if (this.currentUserId && op.userId && op.userId !== this.currentUserId) continue;
 
                 const corner = this.getCornerAtPosition(pos, op);
                 if (corner) {

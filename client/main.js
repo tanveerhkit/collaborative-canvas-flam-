@@ -434,6 +434,7 @@ function setupUIHandlers() {
                 const operation = {
                     type: 'image',
                     id: tempId,
+                    userId: canvasManager.currentUserId, // Attach user ID for local ownership check
                     data: {
                         tempId: tempId,
                         x: pos.x,
