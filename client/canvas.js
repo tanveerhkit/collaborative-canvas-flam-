@@ -866,28 +866,19 @@ class CanvasManager {
             const { x, y, src, width, height } = data;
             const pixelPos = this.toPixelPos({ x, y });
 
-            // Check cache
-            let img = this.imageCache.get(src);
+            // Check cache using ID first (more reliable/efficient than huge Data URI)
+            // Fallback to src if no ID (though operations should have IDs)
+            const cacheKey = operation.id || src;
+            let img = this.imageCache.get(cacheKey);
+
             if (!img) {
                 img = new Image();
                 img.src = src;
-                this.imageCache.set(src, img); // Cache by SRC or ID? ID is better if src changes but usually src is unique content. Let's use ID if available or Src.
-                // Actually, let's use the operation ID to key the cache as typically done
-                if (operation.id) {
-                    this.imageCache.set(operation.id, img);
-                }
+                this.imageCache.set(cacheKey, img);
 
                 img.onload = () => {
                     this.redrawCanvas();
                 }
-            }
-
-            // If strictly using ID for cache (from previous code snippets which hinted at imageCache usage), let's align.
-            // But here I'll use operation.id for consistency if possible.
-            // The previous code didn't use cache at all in this block.
-            // Let's rely on operation.id.
-            if (operation.id && !this.imageCache.has(operation.id)) {
-                this.imageCache.set(operation.id, img);
             }
 
             if (!img.complete) return;
