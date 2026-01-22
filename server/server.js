@@ -10,6 +10,7 @@ const roomManager = require('./rooms');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
+    maxHttpBufferSize: 1e7, // 10 MB limit for image uploads
     cors: {
         origin: "*",
         methods: ["GET", "POST"]

@@ -431,27 +431,55 @@ function setupUIHandlers() {
             // Read file as Data URL
             const reader = new FileReader();
             reader.onload = (event) => {
-                const dataUrl = event.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    // Compress/Resize Image
+                    const MAX_SIZE = 1200; // Limit max dimension to 1200px
+                    let width = img.width;
+                    let height = img.height;
 
-                // Create image operation at clicked position
-                const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-                const operation = {
-                    type: 'image',
-                    id: tempId,
-                    userId: canvasManager.currentUserId, // Attach user ID for local ownership check
-                    data: {
-                        tempId: tempId,
-                        x: pos.x,
-                        y: pos.y,
-                        src: dataUrl,
-                        width: 0.3, // 30% of canvas width
-                        height: 0.3, // Will be adjusted to maintain aspect ratio
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
                     }
-                };
 
-                // Add locally and send to server
-                canvasManager.addOperation(operation);
-                wsClient.sendDrawingEvent('image', operation.data);
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = width;
+                    tempCanvas.height = height;
+                    const ctx = tempCanvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Convert to slightly compressed JPEG to save bandwidth
+                    const compressDataUrl = tempCanvas.toDataURL('image/jpeg', 0.8);
+
+                    // Create image operation at clicked position
+                    const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                    const operation = {
+                        type: 'image',
+                        id: tempId,
+                        userId: canvasManager.currentUserId, // Attach user ID for local ownership check
+                        data: {
+                            tempId: tempId,
+                            x: pos.x,
+                            y: pos.y,
+                            src: compressDataUrl,
+                            width: 0.3, // 30% of canvas width
+                            height: 0.3, // Will be adjusted to maintain aspect ratio
+                        }
+                    };
+
+                    // Add locally and send to server
+                    canvasManager.addOperation(operation);
+                    wsClient.sendDrawingEvent('image', operation.data);
+                };
+                img.src = event.target.result;
             };
             reader.readAsDataURL(file);
 
