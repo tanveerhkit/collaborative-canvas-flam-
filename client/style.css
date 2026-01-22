@@ -284,19 +284,83 @@ body {
   box-shadow: var(--glass-shadow), var(--inner-highlight);
 
   /* Layout */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* Anchor for toggle button */
+  overflow: visible;
+  /* Allow button to stick out */
+
+  /* Transition for collapsing */
+  transition: transform var(--transition-spring);
+  z-index: 100;
+}
+
+.sidebar-content {
+  /* Inner scrollable container */
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 24px;
   overflow-y: auto;
+  flex: 1;
+  /* Take all available space */
 
   /* Hide Scrollbar */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-.sidebar::-webkit-scrollbar {
+.sidebar-content::-webkit-scrollbar {
   display: none;
+}
+
+.sidebar.collapsed {
+  transform: translateX(calc(-100% - 24px));
+  /* Move fully off-screen */
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  position: absolute;
+  top: 24px;
+  right: -16px;
+  /* Stick out slightly */
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 101;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+  transform: translateX(50%);
+  /* Center on edge */
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  right: -40px;
+  /* Push out further when collapsed so it's visible */
+  transform: translateX(0) rotate(180deg);
+  /* Rotate arrow */
+  background: var(--primary);
+  /* Highlight when collapsed */
+  color: white;
+}
+
+.sidebar-toggle:hover {
+  transform: translateX(50%) scale(1.1);
+  color: var(--primary);
+}
+
+.sidebar.collapsed .sidebar-toggle:hover {
+  transform: rotate(180deg) scale(1.1);
+  color: white;
 }
 
 /* Panel Sections */
