@@ -645,7 +645,7 @@ class CanvasManager {
             const textInput = document.createElement('input');
             textInput.id = 'text-input-overlay';
             textInput.type = 'text';
-            textInput.placeholder = 'Type and press Enter...';
+            textInput.placeholder = 'Type text and press Enter';
             textInput.style.cssText = `
                 position: absolute;
                 left: ${screenX}px;

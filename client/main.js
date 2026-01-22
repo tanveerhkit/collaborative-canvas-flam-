@@ -29,7 +29,7 @@ async function init() {
     document.getElementById('share-link').value = window.location.href;
 
     // Get user name
-    const userName = prompt('Enter your name:', 'User' + Math.floor(Math.random() * 1000)) || 'Anonymous';
+    const userName = prompt('Enter your name', 'User' + Math.floor(Math.random() * 1000)) || 'Anonymous';
 
     // Initialize canvas
     const canvas = document.getElementById('canvas');
@@ -574,7 +574,7 @@ function setupUIHandlers() {
 
     // Clear canvas (user clears only their drawings)
     document.getElementById('clear-btn').addEventListener('click', () => {
-        if (confirm('Clear your drawings? (Only your drawings will be removed)')) {
+        if (confirm('Clear your drawings? Only your content will be removed.')) {
             wsClient.requestClearCanvas();
         }
     });
@@ -583,7 +583,7 @@ function setupUIHandlers() {
     const adminClearBtn = document.getElementById('admin-clear-all-btn');
     if (adminClearBtn) {
         adminClearBtn.addEventListener('click', () => {
-            if (confirm('Clear ALL drawings for ALL users? This cannot be undone!')) {
+            if (confirm('Clear the canvas for everyone? This cannot be undone.')) {
                 wsClient.requestAdminClearAll();
             }
         });
@@ -840,7 +840,7 @@ function updateUserList(users) {
 
         let adminBadge = '';
         if (user.isAdmin) {
-            adminBadge = '<span class="admin-badge" title="Admin">👑</span>';
+            adminBadge = '<span class="user-admin-badge" title="Admin">Admin</span>';
         }
 
         let adminActions = '';
