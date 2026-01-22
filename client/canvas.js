@@ -39,6 +39,9 @@ class CanvasManager {
         this.remoteTextPreviews = new Map();
         this.remoteMovePreviews = new Map();
         this.remotePreviewRaf = 0;
+        this.userLayers = new Map();
+        this.eraserMaskCanvas = document.createElement('canvas');
+        this.eraserMaskCtx = this.eraserMaskCanvas.getContext('2d');
 
         // Reference space for consistent rendering across resizes
         this.referenceSize = { width: 0, height: 0 };
@@ -74,21 +77,6 @@ class CanvasManager {
      */
     setUserId(userId) {
         this.currentUserId = userId;
-
-        // Drop foreign eraser ops that may have arrived before user ID was set.
-        this.operations = this.operations.filter(op => {
-            if (!op || op.type !== 'draw') return true;
-            if (!op.data || op.data.tool !== 'eraser') return true;
-            return !op.userId || op.userId === userId;
-        });
-
-        this.activeStrokes.forEach((stroke, strokeUserId) => {
-            if (stroke && stroke.tool === 'eraser' && strokeUserId !== userId) {
-                this.activeStrokes.delete(strokeUserId);
-            }
-        });
-
-        this.redrawCanvas();
     }
 
     /**
@@ -150,6 +138,8 @@ class CanvasManager {
             this.remotePreviewCanvas.width = nextWidth;
             this.remotePreviewCanvas.height = nextHeight;
         }
+        this.resizeUserLayers(nextWidth, nextHeight);
+        this.resizeEraserMask(nextWidth, nextHeight);
 
         const hasReference = this.referenceSize.width && this.referenceSize.height;
         const hasContent = this.operations.length > 0 ||
@@ -180,6 +170,79 @@ class CanvasManager {
         this.contentTransform.scale = safeScale;
         this.contentTransform.offsetX = (this.canvas.width - refWidth * safeScale) / 2;
         this.contentTransform.offsetY = (this.canvas.height - refHeight * safeScale) / 2;
+    }
+
+    resizeUserLayers(width, height) {
+        this.userLayers.forEach((layer) => {
+            if (!layer || !layer.canvas) return;
+            if (layer.canvas.width === width && layer.canvas.height === height) return;
+            layer.canvas.width = width;
+            layer.canvas.height = height;
+        });
+    }
+
+    resizeEraserMask(width, height) {
+        if (!this.eraserMaskCanvas) return;
+        if (this.eraserMaskCanvas.width === width && this.eraserMaskCanvas.height === height) return;
+        this.eraserMaskCanvas.width = width;
+        this.eraserMaskCanvas.height = height;
+    }
+
+    getUserLayer(userId) {
+        if (!userId) return null;
+        let layer = this.userLayers.get(userId);
+        if (!layer) {
+            const canvas = document.createElement('canvas');
+            canvas.width = this.canvas.width;
+            canvas.height = this.canvas.height;
+            const ctx = canvas.getContext('2d');
+            layer = { canvas, ctx };
+            this.userLayers.set(userId, layer);
+        } else if (layer.canvas.width !== this.canvas.width || layer.canvas.height !== this.canvas.height) {
+            layer.canvas.width = this.canvas.width;
+            layer.canvas.height = this.canvas.height;
+        }
+        return layer;
+    }
+
+    clearUserLayers() {
+        this.userLayers.forEach((layer) => {
+            if (!layer || !layer.ctx) return;
+            layer.ctx.setTransform(1, 0, 0, 1, 0, 0);
+            layer.ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+        });
+    }
+
+    drawFreehandPath(ctx, points) {
+        if (!points || points.length === 0) return;
+        const pixelPoints = points.map(p => this.toPixelPos(p));
+
+        ctx.beginPath();
+        ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
+
+        if (pixelPoints.length < 3) {
+            for (let i = 1; i < pixelPoints.length; i++) {
+                ctx.lineTo(pixelPoints[i].x, pixelPoints[i].y);
+            }
+            ctx.stroke();
+            return;
+        }
+
+        for (let i = 1; i < pixelPoints.length - 1; i++) {
+            const midPoint = {
+                x: (pixelPoints[i].x + pixelPoints[i + 1].x) / 2,
+                y: (pixelPoints[i].y + pixelPoints[i + 1].y) / 2
+            };
+
+            ctx.quadraticCurveTo(
+                pixelPoints[i].x, pixelPoints[i].y,
+                midPoint.x, midPoint.y
+            );
+        }
+
+        const lastPoint = pixelPoints[pixelPoints.length - 1];
+        ctx.lineTo(lastPoint.x, lastPoint.y);
+        ctx.stroke();
     }
 
     queueRemotePreviewRender() {
@@ -1095,23 +1158,29 @@ class CanvasManager {
      * Draw a complete operation (from server or history)
      */
     drawOperation(operation) {
-        if (!operation.data) return;
+        this.drawOperationOnContext(this.ctx, operation, { skipSelected: true, drawSelection: true });
+    }
+
+    drawOperationOnContext(ctx, operation, options = {}) {
+        if (!operation || !operation.data) return;
+
+        const { skipSelected = true, drawSelection = true } = options;
 
         // Skip drawing the selected operation while dragging (it's on preview layer)
-        if (this.isDragging && this.selectedOperation && operation.id === this.selectedOperation.id) {
+        if (skipSelected && this.isDragging && this.selectedOperation && operation.id === this.selectedOperation.id) {
             return;
         }
 
         const { type, data } = operation;
 
         // Ensure we have correct context settings
-        this.ctx.beginPath();
-        this.ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color;
+        ctx.beginPath();
+        ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color;
         const scaledWidth = (data.width || 2) * this.contentTransform.scale;
-        this.ctx.lineWidth = scaledWidth;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        this.ctx.fillStyle = data.color; // For fills if needed
+        ctx.lineWidth = scaledWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.fillStyle = data.color; // For fills if needed
 
         if (type === 'shape') {
             const { shapeType, start, end, filled } = data;
@@ -1122,24 +1191,24 @@ class CanvasManager {
 
             if (shapeType === 'rectangle') {
                 if (filled) {
-                    this.ctx.fillRect(startPixel.x, startPixel.y, width, height);
+                    ctx.fillRect(startPixel.x, startPixel.y, width, height);
                 } else {
-                    this.ctx.strokeRect(startPixel.x, startPixel.y, width, height);
+                    ctx.strokeRect(startPixel.x, startPixel.y, width, height);
                 }
             } else if (shapeType === 'circle') {
                 const radius = Math.sqrt(width * width + height * height) / 2;
                 const centerX = startPixel.x + width / 2;
                 const centerY = startPixel.y + height / 2;
 
-                this.ctx.beginPath();
-                this.ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
-                if (filled) this.ctx.fill();
-                else this.ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
+                if (filled) ctx.fill();
+                else ctx.stroke();
             } else if (shapeType === 'line') {
-                this.ctx.beginPath();
-                this.ctx.moveTo(startPixel.x, startPixel.y);
-                this.ctx.lineTo(endPixel.x, endPixel.y);
-                this.ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(startPixel.x, startPixel.y);
+                ctx.lineTo(endPixel.x, endPixel.y);
+                ctx.stroke();
             }
             return;
         }
@@ -1149,10 +1218,10 @@ class CanvasManager {
             const pixelPos = this.toPixelPos({ x, y });
 
             const scaledFontSize = (fontSize || 24) * this.contentTransform.scale;
-            this.ctx.font = `${scaledFontSize}px ${font || 'Plus Jakarta Sans, sans-serif'}`;
-            this.ctx.fillStyle = color;
-            this.ctx.textBaseline = 'top';
-            this.ctx.fillText(text, pixelPos.x, pixelPos.y);
+            ctx.font = `${scaledFontSize}px ${font || 'Plus Jakarta Sans, sans-serif'}`;
+            ctx.fillStyle = color;
+            ctx.textBaseline = 'top';
+            ctx.fillText(text, pixelPos.x, pixelPos.y);
             return;
         }
 
@@ -1194,33 +1263,33 @@ class CanvasManager {
             const finalX = pixelPos.x - finalWidth / 2;
             const finalY = pixelPos.y - finalHeight / 2;
 
-            this.ctx.drawImage(img, finalX, finalY, finalWidth, finalHeight);
+            ctx.drawImage(img, finalX, finalY, finalWidth, finalHeight);
 
             // Draw selection border if selected
-            const isSelected = this.selectedOperation && this.selectedOperation.id === operation.id;
+            const isSelected = drawSelection && this.selectedOperation && this.selectedOperation.id === operation.id;
             if (isSelected) {
-                this.ctx.save();
-                this.ctx.strokeStyle = '#6366f1';
-                this.ctx.lineWidth = 3 / this.camera.zoom; // Scale line width
-                this.ctx.setLineDash([5 / this.camera.zoom, 5 / this.camera.zoom]); // Scale dash
-                this.ctx.strokeRect(finalX, finalY, finalWidth, finalHeight);
+                ctx.save();
+                ctx.strokeStyle = '#6366f1';
+                ctx.lineWidth = 3 / this.camera.zoom; // Scale line width
+                ctx.setLineDash([5 / this.camera.zoom, 5 / this.camera.zoom]); // Scale dash
+                ctx.strokeRect(finalX, finalY, finalWidth, finalHeight);
 
                 // Draw corner handles
-                this.ctx.setLineDash([]);
-                this.ctx.fillStyle = '#6366f1';
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#6366f1';
                 // Fixed pixel size in screen space requires scaling inversely by zoom
                 const handlePixelSize = 12 / this.camera.zoom;
 
                 // TL
-                this.ctx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                ctx.fillRect(finalX - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
                 // TR
-                this.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY - handlePixelSize / 2, handlePixelSize, handlePixelSize);
                 // BL
-                this.ctx.fillRect(finalX - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                ctx.fillRect(finalX - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
                 // BR
-                this.ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
+                ctx.fillRect(finalX + finalWidth - handlePixelSize / 2, finalY + finalHeight - handlePixelSize / 2, handlePixelSize, handlePixelSize);
 
-                this.ctx.restore();
+                ctx.restore();
             }
             return;
         }
@@ -1229,32 +1298,7 @@ class CanvasManager {
         const points = data.points;
         if (!points || points.length === 0) return;
 
-        // Convert to pixel coordinates (World)
-        const pixelPoints = points.map(p => this.toPixelPos(p));
-
-        // Draw first point
-        this.ctx.moveTo(pixelPoints[0].x, pixelPoints[0].y);
-
-        // Draw smooth path through all points
-        for (let i = 1; i < pixelPoints.length - 1; i++) {
-            const midPoint = {
-                x: (pixelPoints[i].x + pixelPoints[i + 1].x) / 2,
-                y: (pixelPoints[i].y + pixelPoints[i + 1].y) / 2
-            };
-
-            this.ctx.quadraticCurveTo(
-                pixelPoints[i].x, pixelPoints[i].y,
-                midPoint.x, midPoint.y
-            );
-        }
-
-        // Draw to last point
-        if (pixelPoints.length > 1) {
-            const lastPoint = pixelPoints[pixelPoints.length - 1];
-            this.ctx.lineTo(lastPoint.x, lastPoint.y);
-        }
-
-        this.ctx.stroke();
+        this.drawFreehandPath(ctx, points);
     }
 
     /**
@@ -1273,17 +1317,80 @@ class CanvasManager {
         // Grid (Optional visual aid for infinite canvas feel)
         this.drawGrid();
 
+        this.clearUserLayers();
+
+        const zoom = this.camera.zoom;
+        const panX = this.camera.x;
+        const panY = this.camera.y;
+
         // Apply Camera Transform
-        this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
+        this.ctx.setTransform(zoom, 0, 0, zoom, panX, panY);
 
         // Redraw all operations
         this.operations.forEach(op => {
-            if (!op.undone) {
+            if (op.undone) return;
+
+            const userId = op.userId || null;
+            const layer = userId ? this.getUserLayer(userId) : null;
+            const isEraser = op.type === 'draw' && op.data && op.data.tool === 'eraser';
+
+            if (isEraser) {
+                if (!layer || !this.eraserMaskCtx || !op.data || !op.data.points) return;
+
+                // Build eraser mask
+                this.eraserMaskCtx.setTransform(1, 0, 0, 1, 0, 0);
+                this.eraserMaskCtx.clearRect(0, 0, this.eraserMaskCanvas.width, this.eraserMaskCanvas.height);
+                this.eraserMaskCtx.save();
+                this.eraserMaskCtx.setTransform(zoom, 0, 0, zoom, panX, panY);
+                this.eraserMaskCtx.strokeStyle = '#000000';
+                const scaledWidth = (op.data.width || 2) * this.contentTransform.scale;
+                this.eraserMaskCtx.lineWidth = scaledWidth;
+                this.eraserMaskCtx.lineCap = 'round';
+                this.eraserMaskCtx.lineJoin = 'round';
+                this.drawFreehandPath(this.eraserMaskCtx, op.data.points);
+                this.eraserMaskCtx.restore();
+
+                // Mask eraser to user's layer only
+                this.eraserMaskCtx.save();
+                this.eraserMaskCtx.globalCompositeOperation = 'destination-in';
+                this.eraserMaskCtx.drawImage(layer.canvas, 0, 0);
+                this.eraserMaskCtx.restore();
+
+                // Apply masked erase to main canvas
+                this.ctx.save();
+                this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+                this.ctx.globalCompositeOperation = 'destination-out';
+                this.ctx.drawImage(this.eraserMaskCanvas, 0, 0);
+                this.ctx.restore();
+
+                // Apply erase to user's layer for future masks
+                layer.ctx.save();
+                layer.ctx.setTransform(zoom, 0, 0, zoom, panX, panY);
+                layer.ctx.globalCompositeOperation = 'destination-out';
+                layer.ctx.strokeStyle = '#000000';
+                layer.ctx.lineWidth = scaledWidth;
+                layer.ctx.lineCap = 'round';
+                layer.ctx.lineJoin = 'round';
+                this.drawFreehandPath(layer.ctx, op.data.points);
+                layer.ctx.restore();
+                return;
+            }
+
+            try {
+                this.drawOperationOnContext(this.ctx, op, { skipSelected: true, drawSelection: true });
+            } catch (e) {
+                console.error('Error drawing operation:', op, e);
+            }
+
+            if (layer) {
+                layer.ctx.save();
+                layer.ctx.setTransform(zoom, 0, 0, zoom, panX, panY);
                 try {
-                    this.drawOperation(op);
+                    this.drawOperationOnContext(layer.ctx, op, { skipSelected: false, drawSelection: false });
                 } catch (e) {
-                    console.error('Error drawing operation:', op, e);
+                    console.error('Error drawing user layer operation:', op, e);
                 }
+                layer.ctx.restore();
             }
         });
 
@@ -1325,18 +1432,6 @@ class CanvasManager {
 
         if (operation.type === 'clear') {
             this.clearCanvas();
-            return;
-        }
-
-        const isForeignEraser = operation &&
-            (operation.type === 'draw' || operation.type === 'draw-incremental') &&
-            operation.data &&
-            operation.data.tool === 'eraser' &&
-            this.currentUserId &&
-            operation.userId &&
-            operation.userId !== this.currentUserId;
-
-        if (isForeignEraser) {
             return;
         }
 
@@ -1431,6 +1526,10 @@ class CanvasManager {
             this.queueRemotePreviewRender();
         }
 
+        if (operation.type === 'draw-incremental' && operation.data && operation.data.tool === 'eraser') {
+            return;
+        }
+
         if (operation.type === 'draw-incremental') {
             // Handle incremental updates (real-time streaming)
             if (!this.activeStrokes.has(operation.userId)) {
@@ -1493,7 +1592,10 @@ class CanvasManager {
         this.activeStrokes.delete(operation.userId);
 
         // 4. Draw the operation (if not undone)
-        if (!operation.undone) {
+        const skipImmediateDraw = operation.type === 'draw' &&
+            operation.data &&
+            operation.data.tool === 'eraser';
+        if (!operation.undone && !skipImmediateDraw) {
             this.ctx.save();
             this.ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
             try {
