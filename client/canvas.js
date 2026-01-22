@@ -74,6 +74,21 @@ class CanvasManager {
      */
     setUserId(userId) {
         this.currentUserId = userId;
+
+        // Drop foreign eraser ops that may have arrived before user ID was set.
+        this.operations = this.operations.filter(op => {
+            if (!op || op.type !== 'draw') return true;
+            if (!op.data || op.data.tool !== 'eraser') return true;
+            return !op.userId || op.userId === userId;
+        });
+
+        this.activeStrokes.forEach((stroke, strokeUserId) => {
+            if (stroke && stroke.tool === 'eraser' && strokeUserId !== userId) {
+                this.activeStrokes.delete(strokeUserId);
+            }
+        });
+
+        this.redrawCanvas();
     }
 
     /**
@@ -1310,6 +1325,18 @@ class CanvasManager {
 
         if (operation.type === 'clear') {
             this.clearCanvas();
+            return;
+        }
+
+        const isForeignEraser = operation &&
+            (operation.type === 'draw' || operation.type === 'draw-incremental') &&
+            operation.data &&
+            operation.data.tool === 'eraser' &&
+            this.currentUserId &&
+            operation.userId &&
+            operation.userId !== this.currentUserId;
+
+        if (isForeignEraser) {
             return;
         }
 
