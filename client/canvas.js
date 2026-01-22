@@ -33,6 +33,12 @@ class CanvasManager {
         // Shape Preview Overlay Canvas
         this.previewCanvas = document.getElementById('shape-preview');
         this.previewCtx = this.previewCanvas ? this.previewCanvas.getContext('2d') : null;
+        this.remotePreviewCanvas = document.getElementById('remote-preview');
+        this.remotePreviewCtx = this.remotePreviewCanvas ? this.remotePreviewCanvas.getContext('2d') : null;
+        this.remoteShapePreviews = new Map();
+        this.remoteTextPreviews = new Map();
+        this.remoteMovePreviews = new Map();
+        this.remotePreviewRaf = 0;
 
         // Reference space for consistent rendering across resizes
         this.referenceSize = { width: 0, height: 0 };
@@ -125,6 +131,10 @@ class CanvasManager {
             this.previewCanvas.width = nextWidth;
             this.previewCanvas.height = nextHeight;
         }
+        if (this.remotePreviewCanvas) {
+            this.remotePreviewCanvas.width = nextWidth;
+            this.remotePreviewCanvas.height = nextHeight;
+        }
 
         const hasReference = this.referenceSize.width && this.referenceSize.height;
         const hasContent = this.operations.length > 0 ||
@@ -139,6 +149,7 @@ class CanvasManager {
 
         // Redraw all operations (resolution independent)
         this.redrawCanvas();
+        this.queueRemotePreviewRender();
     }
 
     /**
@@ -154,6 +165,117 @@ class CanvasManager {
         this.contentTransform.scale = safeScale;
         this.contentTransform.offsetX = (this.canvas.width - refWidth * safeScale) / 2;
         this.contentTransform.offsetY = (this.canvas.height - refHeight * safeScale) / 2;
+    }
+
+    queueRemotePreviewRender() {
+        if (!this.remotePreviewCtx) return;
+        if (this.remotePreviewRaf) return;
+        this.remotePreviewRaf = window.requestAnimationFrame(() => {
+            this.remotePreviewRaf = 0;
+            this.redrawRemotePreviews();
+        });
+    }
+
+    redrawRemotePreviews() {
+        if (!this.remotePreviewCtx) return;
+
+        const ctx = this.remotePreviewCtx;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, this.remotePreviewCanvas.width, this.remotePreviewCanvas.height);
+
+        ctx.setTransform(this.camera.zoom, 0, 0, this.camera.zoom, this.camera.x, this.camera.y);
+
+        this.remoteShapePreviews.forEach((preview) => {
+            if (!preview || !preview.start || !preview.end) return;
+            const { shapeType, start, end, color, width } = preview;
+            const startPixel = this.toPixelPos(start);
+            const endPixel = this.toPixelPos(end);
+            const drawWidth = endPixel.x - startPixel.x;
+            const drawHeight = endPixel.y - startPixel.y;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.strokeStyle = color || '#000000';
+            ctx.lineWidth = (width || 2) * this.contentTransform.scale;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.setLineDash([6 / this.camera.zoom, 6 / this.camera.zoom]);
+
+            if (shapeType === 'rectangle') {
+                ctx.strokeRect(startPixel.x, startPixel.y, drawWidth, drawHeight);
+            } else if (shapeType === 'circle') {
+                const radius = Math.sqrt(drawWidth * drawWidth + drawHeight * drawHeight) / 2;
+                const centerX = startPixel.x + drawWidth / 2;
+                const centerY = startPixel.y + drawHeight / 2;
+                ctx.arc(centerX, centerY, Math.abs(radius), 0, Math.PI * 2);
+                ctx.stroke();
+            } else if (shapeType === 'line') {
+                ctx.moveTo(startPixel.x, startPixel.y);
+                ctx.lineTo(endPixel.x, endPixel.y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        });
+
+        this.remoteTextPreviews.forEach((preview) => {
+            if (!preview || !preview.text) return;
+            const { x, y, text, color, font, fontSize } = preview;
+            const pixelPos = this.toPixelPos({ x, y });
+            const scaledFontSize = (fontSize || 24) * this.contentTransform.scale;
+
+            ctx.save();
+            ctx.fillStyle = color || '#000000';
+            ctx.font = `${scaledFontSize}px ${font || 'Plus Jakarta Sans, sans-serif'}`;
+            ctx.textBaseline = 'top';
+            ctx.globalAlpha = 0.9;
+            ctx.fillText(text, pixelPos.x, pixelPos.y);
+            ctx.restore();
+        });
+
+        this.remoteMovePreviews.forEach((preview) => {
+            if (!preview) return;
+            const { operationId, x, y } = preview;
+            const op = this.operations.find(item => item.id === operationId);
+            if (!op || op.type !== 'image' || !op.data) return;
+
+            const { src, width, height } = op.data;
+            const pixelPos = this.toPixelPos({ x, y });
+            const imgWidth = this.toPixelLengthX(width);
+            const imgHeight = this.toPixelLengthY(height);
+
+            const cacheKey = op.id || src;
+            let img = this.imageCache.get(cacheKey);
+            if (!img) {
+                img = new Image();
+                img.src = src;
+                this.imageCache.set(cacheKey, img);
+            }
+
+            if (!img.complete) return;
+
+            const aspectRatio = img.width / img.height;
+            let finalWidth = imgWidth;
+            let finalHeight = imgWidth / aspectRatio;
+
+            if (finalHeight > imgHeight) {
+                finalHeight = imgHeight;
+                finalWidth = imgHeight * aspectRatio;
+            }
+
+            const finalX = pixelPos.x - finalWidth / 2;
+            const finalY = pixelPos.y - finalHeight / 2;
+
+            ctx.save();
+            ctx.globalAlpha = 0.85;
+            ctx.drawImage(img, finalX, finalY, finalWidth, finalHeight);
+            ctx.setLineDash([6 / this.camera.zoom, 6 / this.camera.zoom]);
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 2 / this.camera.zoom;
+            ctx.strokeRect(finalX, finalY, finalWidth, finalHeight);
+            ctx.restore();
+        });
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
     /**
@@ -453,6 +575,30 @@ class CanvasManager {
             const fontSize = Math.max(16, this.currentWidth * 4);
             const refFontSize = fontSize / (this.contentTransform.scale || 1);
             const self = this;
+            let hasPreview = false;
+
+            const sendTextPreview = () => {
+                const textValue = textInput.value;
+                if (!textValue.trim()) {
+                    if (hasPreview) {
+                        self.emitTextPreview({ phase: 'end' });
+                        hasPreview = false;
+                    }
+                    return;
+                }
+
+                hasPreview = true;
+                self.emitTextPreview({
+                    x: savedPos.x,
+                    y: savedPos.y,
+                    text: textValue,
+                    color: color,
+                    fontSize: refFontSize,
+                    font: 'Plus Jakarta Sans, sans-serif'
+                });
+            };
+
+            textInput.addEventListener('input', sendTextPreview);
 
             // Handle Enter key to finalize text
             textInput.onkeydown = function (event) {
@@ -479,8 +625,16 @@ class CanvasManager {
                             self.onShapeComplete(operation);
                         }
                     }
+                    if (hasPreview) {
+                        self.emitTextPreview({ phase: 'end' });
+                        hasPreview = false;
+                    }
                     textInput.remove();
                 } else if (event.key === 'Escape') {
+                    if (hasPreview) {
+                        self.emitTextPreview({ phase: 'end' });
+                        hasPreview = false;
+                    }
                     textInput.remove();
                 }
             };
@@ -680,6 +834,14 @@ class CanvasManager {
 
                 this.previewCtx.restore();
             }
+
+            if (this.selectedOperation.type === 'image') {
+                this.emitMovePreview({
+                    operationId: this.selectedOperation.id,
+                    x: newX,
+                    y: newY
+                });
+            }
             return;
         }
 
@@ -749,6 +911,14 @@ class CanvasManager {
 
                 this.previewCtx.restore();
             }
+
+            this.emitShapePreview({
+                shapeType: this.currentTool,
+                start: this.startPoint,
+                end: pos,
+                color: this.currentColor,
+                width: this.getReferenceStrokeWidth()
+            });
 
             this.emitCursorMove(e);
             return;
@@ -827,6 +997,13 @@ class CanvasManager {
             if (this.onOperationMove) {
                 this.onOperationMove(this.selectedOperation);
             }
+
+            if (this.selectedOperation.type === 'image') {
+                this.emitMovePreview({
+                    operationId: this.selectedOperation.id,
+                    phase: 'end'
+                });
+            }
             return;
         }
 
@@ -855,6 +1032,8 @@ class CanvasManager {
             if (this.onShapeComplete) {
                 this.onShapeComplete(operation);
             }
+
+            this.emitShapePreview({ phase: 'end' });
 
             // Clear preview canvas
             if (this.previewCtx) {
@@ -1094,6 +1273,7 @@ class CanvasManager {
         });
 
         this.ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset
+        this.queueRemotePreviewRender();
     }
 
     drawGrid() {
@@ -1133,6 +1313,63 @@ class CanvasManager {
             return;
         }
 
+        if (operation.type === 'shape-preview') {
+            if (this.currentUserId && operation.userId === this.currentUserId) return;
+            const data = operation.data || {};
+            if (!operation.userId) return;
+            if (data.phase === 'end') {
+                this.remoteShapePreviews.delete(operation.userId);
+            } else {
+                this.remoteShapePreviews.set(operation.userId, {
+                    shapeType: data.shapeType,
+                    start: data.start,
+                    end: data.end,
+                    color: data.color,
+                    width: data.width
+                });
+            }
+            this.queueRemotePreviewRender();
+            return;
+        }
+
+        if (operation.type === 'text-preview') {
+            if (this.currentUserId && operation.userId === this.currentUserId) return;
+            const data = operation.data || {};
+            if (!operation.userId) return;
+            const textValue = data.text || '';
+            if (data.phase === 'end' || !textValue.trim()) {
+                this.remoteTextPreviews.delete(operation.userId);
+            } else {
+                this.remoteTextPreviews.set(operation.userId, {
+                    x: data.x,
+                    y: data.y,
+                    text: data.text,
+                    color: data.color,
+                    fontSize: data.fontSize,
+                    font: data.font
+                });
+            }
+            this.queueRemotePreviewRender();
+            return;
+        }
+
+        if (operation.type === 'move-preview') {
+            if (this.currentUserId && operation.userId === this.currentUserId) return;
+            const data = operation.data || {};
+            if (!data.operationId) return;
+            if (data.phase === 'end') {
+                this.remoteMovePreviews.delete(data.operationId);
+            } else {
+                this.remoteMovePreviews.set(data.operationId, {
+                    operationId: data.operationId,
+                    x: data.x,
+                    y: data.y
+                });
+            }
+            this.queueRemotePreviewRender();
+            return;
+        }
+
         // Handle move operations - update existing operation position
         if (operation.type === 'move' && operation.data && operation.data.operationId) {
             const existingOp = this.operations.find(op => op.id === operation.data.operationId);
@@ -1141,6 +1378,8 @@ class CanvasManager {
                 existingOp.data.y = operation.data.y;
                 this.redrawCanvas();
             }
+            this.remoteMovePreviews.delete(operation.data.operationId);
+            this.queueRemotePreviewRender();
             return;
         }
 
@@ -1153,6 +1392,16 @@ class CanvasManager {
                 this.redrawCanvas();
             }
             return;
+        }
+
+        if (operation.type === 'shape' && operation.userId) {
+            this.remoteShapePreviews.delete(operation.userId);
+            this.queueRemotePreviewRender();
+        }
+
+        if (operation.type === 'text' && operation.userId) {
+            this.remoteTextPreviews.delete(operation.userId);
+            this.queueRemotePreviewRender();
         }
 
         if (operation.type === 'draw-incremental') {
@@ -1312,6 +1561,27 @@ class CanvasManager {
      * Emit cursor move (to be overridden by main app)
      */
     emitCursorMove(e) {
+        // Implemented in main.js
+    }
+
+    /**
+     * Emit shape preview updates (to be overridden by main app)
+     */
+    emitShapePreview() {
+        // Implemented in main.js
+    }
+
+    /**
+     * Emit text preview updates (to be overridden by main app)
+     */
+    emitTextPreview() {
+        // Implemented in main.js
+    }
+
+    /**
+     * Emit move preview updates (to be overridden by main app)
+     */
+    emitMovePreview() {
         // Implemented in main.js
     }
 

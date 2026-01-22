@@ -175,6 +175,11 @@ function setupCanvasCallbacks() {
     let lastEmitTime = 0;
     const EMIT_DELAY = 50; // Batch points every 50ms
     let lastSentIndex = 0;
+    let lastShapePreviewTime = 0;
+    let lastMovePreviewTime = 0;
+    const PREVIEW_DELAY = 50;
+    let textPreviewTimer = null;
+    let pendingTextPreview = null;
 
     // Handle Shape/Text Completion (optimistic update)
     canvasManager.onShapeComplete = function (operation) {
@@ -257,6 +262,62 @@ function setupCanvasCallbacks() {
         }
         // Reset for next stroke
         lastSentIndex = 0;
+    };
+
+    canvasManager.emitShapePreview = function (data) {
+        if (!data) return;
+        if (data.phase === 'end') {
+            wsClient.sendDrawingEvent('shape-preview', { phase: 'end' });
+            return;
+        }
+
+        const now = Date.now();
+        if (now - lastShapePreviewTime < PREVIEW_DELAY) return;
+        lastShapePreviewTime = now;
+
+        wsClient.sendDrawingEvent('shape-preview', data);
+    };
+
+    canvasManager.emitMovePreview = function (data) {
+        if (!data || !data.operationId) return;
+        if (data.phase === 'end') {
+            wsClient.sendDrawingEvent('move-preview', {
+                operationId: data.operationId,
+                phase: 'end'
+            });
+            return;
+        }
+
+        const now = Date.now();
+        if (now - lastMovePreviewTime < PREVIEW_DELAY) return;
+        lastMovePreviewTime = now;
+
+        wsClient.sendDrawingEvent('move-preview', data);
+    };
+
+    canvasManager.emitTextPreview = function (data) {
+        if (!data) return;
+        if (data.phase === 'end') {
+            if (textPreviewTimer) {
+                clearTimeout(textPreviewTimer);
+                textPreviewTimer = null;
+            }
+            pendingTextPreview = null;
+            wsClient.sendDrawingEvent('text-preview', { phase: 'end' });
+            return;
+        }
+
+        pendingTextPreview = data;
+        if (textPreviewTimer) {
+            clearTimeout(textPreviewTimer);
+        }
+
+        textPreviewTimer = setTimeout(() => {
+            if (pendingTextPreview) {
+                wsClient.sendDrawingEvent('text-preview', pendingTextPreview);
+            }
+            textPreviewTimer = null;
+        }, 80);
     };
 
     canvasManager.emitCursorMove = function (e) {
