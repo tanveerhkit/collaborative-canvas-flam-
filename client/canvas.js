@@ -17,6 +17,7 @@ class CanvasManager {
 
         // Active strokes being drawn by other users (for real-time incremental updates)
         this.activeStrokes = new Map(); // userId -> { points, color, width, tool }
+        this.pendingStrokeCount = 0;
 
         // Camera State (Zoom & Pan)
         this.camera = {
@@ -32,6 +33,12 @@ class CanvasManager {
         // Shape Preview Overlay Canvas
         this.previewCanvas = document.getElementById('shape-preview');
         this.previewCtx = this.previewCanvas ? this.previewCanvas.getContext('2d') : null;
+
+        // Reference space for consistent rendering across resizes
+        this.referenceSize = { width: 0, height: 0 };
+        this.contentTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+        this.resizeObserver = null;
+        this.resizeRaf = 0;
 
         // Selection/Move State
         this.selectedOperation = null; // Currently selected operation (for move)
@@ -69,11 +76,23 @@ class CanvasManager {
     setupCanvas() {
         // Set canvas size to fill container
         this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
+        window.addEventListener('resize', () => this.queueResize());
+        if (window.ResizeObserver && this.canvas.parentElement) {
+            this.resizeObserver = new ResizeObserver(() => this.queueResize());
+            this.resizeObserver.observe(this.canvas.parentElement);
+        }
 
         // Set default canvas properties
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
+    }
+
+    queueResize() {
+        if (this.resizeRaf) return;
+        this.resizeRaf = window.requestAnimationFrame(() => {
+            this.resizeRaf = 0;
+            this.resizeCanvas();
+        });
     }
 
     /**
@@ -81,20 +100,60 @@ class CanvasManager {
      */
     resizeCanvas() {
         const container = this.canvas.parentElement;
+        if (!container) return;
         const rect = container.getBoundingClientRect();
 
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        const nextWidth = Math.max(1, Math.round(rect.width));
+        const nextHeight = Math.max(1, Math.round(rect.height));
+
+        if (nextWidth === this.canvas.width && nextHeight === this.canvas.height) {
+            return;
+        }
+
         // Resize canvas
-        this.canvas.width = rect.width;
-        this.canvas.height = rect.height;
+        this.canvas.width = nextWidth;
+        this.canvas.height = nextHeight;
+
+        // Re-apply context defaults after resize
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
 
         // Resize preview canvas if exists
         if (this.previewCanvas) {
-            this.previewCanvas.width = rect.width;
-            this.previewCanvas.height = rect.height;
+            this.previewCanvas.width = nextWidth;
+            this.previewCanvas.height = nextHeight;
         }
+
+        const hasReference = this.referenceSize.width && this.referenceSize.height;
+        const hasContent = this.operations.length > 0 ||
+            this.activeStrokes.size > 0 ||
+            this.pendingStrokeCount > 0 ||
+            this.isDrawing;
+        if (!hasReference || !hasContent) {
+            this.referenceSize = { width: nextWidth, height: nextHeight };
+        }
+
+        this.updateContentTransform();
 
         // Redraw all operations (resolution independent)
         this.redrawCanvas();
+    }
+
+    /**
+     * Update transform that maps reference space to current canvas size.
+     */
+    updateContentTransform() {
+        const refWidth = this.referenceSize.width || this.canvas.width;
+        const refHeight = this.referenceSize.height || this.canvas.height;
+
+        const scale = Math.min(this.canvas.width / refWidth, this.canvas.height / refHeight);
+        const safeScale = isFinite(scale) && scale > 0 ? scale : 1;
+
+        this.contentTransform.scale = safeScale;
+        this.contentTransform.offsetX = (this.canvas.width - refWidth * safeScale) / 2;
+        this.contentTransform.offsetY = (this.canvas.height - refHeight * safeScale) / 2;
     }
 
     /**
@@ -287,10 +346,18 @@ class CanvasManager {
         const worldPixelX = (screenX - this.camera.x) / this.camera.zoom;
         const worldPixelY = (screenY - this.camera.y) / this.camera.zoom;
 
-        // Normalize (0-1) based on actual canvas dimensions
+        const refWidth = this.referenceSize.width || this.canvas.width;
+        const refHeight = this.referenceSize.height || this.canvas.height;
+        const { scale, offsetX, offsetY } = this.contentTransform;
+        const safeScale = scale || 1;
+
+        // Map from canvas pixels back to reference space
+        const refX = (worldPixelX - offsetX) / safeScale;
+        const refY = (worldPixelY - offsetY) / safeScale;
+
         return {
-            x: worldPixelX / this.canvas.width,
-            y: worldPixelY / this.canvas.height
+            x: refX / refWidth,
+            y: refY / refHeight
         };
     }
 
@@ -298,10 +365,39 @@ class CanvasManager {
      * Convert normalized coordinates to pixel coordinates
      */
     toPixelPos(normalizedPos) {
+        const refWidth = this.referenceSize.width || this.canvas.width;
+        const refHeight = this.referenceSize.height || this.canvas.height;
+        const { scale, offsetX, offsetY } = this.contentTransform;
+
+        const refX = normalizedPos.x * refWidth;
+        const refY = normalizedPos.y * refHeight;
+
         return {
-            x: normalizedPos.x * this.canvas.width,
-            y: normalizedPos.y * this.canvas.height
+            x: refX * scale + offsetX,
+            y: refY * scale + offsetY
         };
+    }
+
+    toPixelLengthX(normalizedLength) {
+        const refWidth = this.referenceSize.width || this.canvas.width;
+        return normalizedLength * refWidth * this.contentTransform.scale;
+    }
+
+    toPixelLengthY(normalizedLength) {
+        const refHeight = this.referenceSize.height || this.canvas.height;
+        return normalizedLength * refHeight * this.contentTransform.scale;
+    }
+
+    fromPixelLengthX(pixelLength) {
+        const refWidth = this.referenceSize.width || this.canvas.width;
+        const scale = this.contentTransform.scale || 1;
+        return pixelLength / (refWidth * scale);
+    }
+
+    fromPixelLengthY(pixelLength) {
+        const refHeight = this.referenceSize.height || this.canvas.height;
+        const scale = this.contentTransform.scale || 1;
+        return pixelLength / (refHeight * scale);
     }
 
     /**
@@ -355,6 +451,7 @@ class CanvasManager {
             const savedPos = { x: pos.x, y: pos.y };
             const color = this.currentColor;
             const fontSize = Math.max(16, this.currentWidth * 4);
+            const refFontSize = fontSize / (this.contentTransform.scale || 1);
             const self = this;
 
             // Handle Enter key to finalize text
@@ -373,7 +470,7 @@ class CanvasManager {
                                 y: savedPos.y,
                                 text: text,
                                 color: color,
-                                fontSize: fontSize,
+                                fontSize: refFontSize,
                                 font: 'Plus Jakarta Sans, sans-serif'
                             }
                         };
@@ -550,8 +647,8 @@ class CanvasManager {
 
                 const { src, width, height } = op.data;
                 const pixelPos = this.toPixelPos({ x: newX, y: newY });
-                const imgWidth = width * this.canvas.width;
-                const imgHeight = height * this.canvas.height;
+                const imgWidth = this.toPixelLengthX(width);
+                const imgHeight = this.toPixelLengthY(height);
 
                 // Use cached image if available
                 let img = this.imageCache.get(op.id);
@@ -749,7 +846,7 @@ class CanvasManager {
                     start: this.startPoint,
                     end: this.lastPoint, // Captured from last draw()
                     color: this.currentColor,
-                    width: this.currentWidth,
+                    width: this.getReferenceStrokeWidth(),
                     filled: false // Default to outline for now
                 }
             };
@@ -793,6 +890,7 @@ class CanvasManager {
 
         // Emit complete stroke
         if (this.currentPath.length > 0) {
+            this.pendingStrokeCount += 1;
             this.emitCompleteStroke();
         }
 
@@ -815,7 +913,8 @@ class CanvasManager {
         // Ensure we have correct context settings
         this.ctx.beginPath();
         this.ctx.strokeStyle = data.tool === 'eraser' ? '#FFFFFF' : data.color;
-        this.ctx.lineWidth = data.width || 2;
+        const scaledWidth = (data.width || 2) * this.contentTransform.scale;
+        this.ctx.lineWidth = scaledWidth;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         this.ctx.fillStyle = data.color; // For fills if needed
@@ -855,7 +954,8 @@ class CanvasManager {
             const { x, y, text, color, font, fontSize } = data;
             const pixelPos = this.toPixelPos({ x, y });
 
-            this.ctx.font = `${fontSize || 24}px ${font || 'Plus Jakarta Sans, sans-serif'}`;
+            const scaledFontSize = (fontSize || 24) * this.contentTransform.scale;
+            this.ctx.font = `${scaledFontSize}px ${font || 'Plus Jakarta Sans, sans-serif'}`;
             this.ctx.fillStyle = color;
             this.ctx.textBaseline = 'top';
             this.ctx.fillText(text, pixelPos.x, pixelPos.y);
@@ -884,8 +984,8 @@ class CanvasManager {
             if (!img.complete) return;
 
             // Calculate pixel dimensions
-            const imgWidth = width * this.canvas.width;
-            const imgHeight = height * this.canvas.height;
+            const imgWidth = this.toPixelLengthX(width);
+            const imgHeight = this.toPixelLengthY(height);
 
             // Maintain aspect ratio
             const aspectRatio = img.width / img.height;
@@ -1106,6 +1206,13 @@ class CanvasManager {
             return;
         }
 
+        if (operation.type === 'draw' &&
+            this.currentUserId &&
+            operation.userId === this.currentUserId &&
+            this.pendingStrokeCount > 0) {
+            this.pendingStrokeCount -= 1;
+        }
+
         // 3. Cleanup active stroke for this user (if any)
         this.activeStrokes.delete(operation.userId);
 
@@ -1182,6 +1289,11 @@ class CanvasManager {
         this.currentWidth = width;
     }
 
+    getReferenceStrokeWidth() {
+        const scale = this.contentTransform.scale || 1;
+        return this.currentWidth / scale;
+    }
+
     /**
      * Emit drawing event (to be overridden by main app)
      */
@@ -1249,7 +1361,8 @@ class CanvasManager {
 
         this.ctx.beginPath();
         this.ctx.strokeStyle = tool === 'eraser' ? '#FFFFFF' : color;
-        this.ctx.lineWidth = width;
+        const scaledWidth = (width || 1) * this.contentTransform.scale;
+        this.ctx.lineWidth = scaledWidth;
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
 
@@ -1348,8 +1461,8 @@ class CanvasManager {
         const img = this.imageCache.get(operation.id);
         if (img && img.complete) {
             const aspectRatio = img.width / img.height;
-            const imgWidth = width * this.canvas.width;
-            const imgHeight = height * this.canvas.height;
+            const imgWidth = this.toPixelLengthX(width);
+            const imgHeight = this.toPixelLengthY(height);
 
             let finalWidth = imgWidth;
             let finalHeight = imgWidth / aspectRatio;
@@ -1360,8 +1473,8 @@ class CanvasManager {
             }
 
             // Convert back to normalized units for hit detection
-            width = finalWidth / this.canvas.width;
-            height = finalHeight / this.canvas.height;
+            width = this.fromPixelLengthX(finalWidth);
+            height = this.fromPixelLengthY(finalHeight);
         }
 
         const halfWidth = width / 2;
@@ -1434,8 +1547,8 @@ class CanvasManager {
 
         const { x, y, src, width, height } = op.data;
         const pixelPos = this.toPixelPos({ x, y });
-        const imgWidth = width * this.canvas.width;
-        const imgHeight = height * this.canvas.height;
+        const imgWidth = this.toPixelLengthX(width);
+        const imgHeight = this.toPixelLengthY(height);
 
         // Use cached image
         let img = this.imageCache.get(op.id);

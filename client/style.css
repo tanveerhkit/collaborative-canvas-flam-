@@ -1076,9 +1076,7 @@ body {
     z-index: 10;
   }
 
-  /* 4. Sidebar -> Floating Bottom Dock! */
-  /* 4. Sidebar -> Floating Bottom Dock! */
-  /* 4. Sidebar -> Floating Bottom Dock! */
+  /* 4. Sidebar -> Floating Bottom Sheet */
   .sidebar {
     position: fixed;
     bottom: 20px;
@@ -1087,20 +1085,16 @@ body {
     left: 50%;
     right: auto;
     /* Remove fixed right alignment */
-    transform: translateX(-50%);
+    transform: translate3d(-50%, 0, 0);
 
-    width: fit-content;
-    /* Only take necessary width */
-    max-width: calc(100% - 24px);
-    /* But don't overflow screen */
-
-    max-height: 25vh;
+    width: calc(100% - 24px);
+    max-height: 70vh;
     padding: 0;
     overflow: visible;
 
-    background: transparent;
-    border: none;
-    box-shadow: none;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--inner-highlight);
 
     /* Layout */
     flex-direction: column;
@@ -1112,47 +1106,38 @@ body {
 
   /* Style the inner content for mobile */
   .sidebar-content {
-    /* Dock styling moved here */
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 24px;
-    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.1);
+    background: transparent;
+    border: none;
+    box-shadow: none;
 
-    padding: 12px 16px;
-    /* Reduced vertical padding */
-    gap: 12px;
+    padding: 16px;
+    gap: 16px;
 
-    flex-direction: row;
+    flex-direction: column;
     flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     width: 100%;
+    max-height: calc(70vh - 24px);
 
-    /* Ensure scrollbar works */
-    pointer-events: auto;
-
-    /* Center items if they don't fill width */
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   /* Mobile Toggle Button - Positioned on Top Center */
   .sidebar-toggle {
-    top: -20px;
+    top: -16px;
     /* Stick out the top */
     right: auto;
     left: 50%;
-    transform: translateX(-50%) rotate(90deg);
-    /* Point down initially */
+    transform: translateX(-50%);
     margin-left: 0;
 
-    width: 40px;
-    height: 24px;
-    /* Pill shape */
-    border-radius: 12px 12px 0 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
 
     background: white;
-    border-bottom: none;
+    border-bottom: 1px solid var(--glass-border);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 
     z-index: 99;
@@ -1168,28 +1153,43 @@ body {
 
   /* Fix button rotation when collapsed */
   .sidebar.collapsed .sidebar-toggle {
-    /* The sidebar moves down. The button (top) moves with it. */
-    /* We want the button to peek up from bottom. */
-    transform: translateX(-50%) rotate(-90deg);
-    /* Point up. */
+    transform: translateX(-50%);
     right: auto;
-    top: -24px;
-    /* Slight adjust */
+    top: -16px;
   }
 
-  /* Improve Glass for Dark Backgrounds */
+  .sidebar-toggle i {
+    line-height: 1;
+    transform: rotate(90deg);
+    transform-origin: center;
+    transition: transform var(--transition-fast);
+  }
+
+  .sidebar.collapsed .sidebar-toggle i {
+    transform: rotate(-90deg);
+  }
+
+  .sidebar-toggle:hover {
+    transform: translateX(-50%) scale(1.05);
+  }
+
+  .sidebar.collapsed .sidebar-toggle:hover {
+    transform: translateX(-50%) scale(1.05);
+  }
+
+  /* Dark theme tweaks for the mobile sheet */
   body.dark-theme .sidebar-content {
-    background: rgba(30, 41, 59, 0.95);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: transparent;
+    border-color: transparent;
   }
 
-  /* Make panels horizontal */
+  /* Stack panels for vertical scrolling */
   .panel {
-    min-width: max-content;
-    flex-direction: row;
-    align-items: center;
-    border-right: 1px solid rgba(0, 0, 0, 0.05);
-    padding-right: 16px;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    border-right: none;
+    padding-right: 0;
   }
 
   .panel:last-child {
@@ -1197,39 +1197,36 @@ body {
   }
 
   .panel h3 {
-    display: none;
+    display: flex;
   }
 
-  /* Hide labels to save space */
-
-  /* Horizontal Tools */
+  /* Tool grid */
   .tool-buttons {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
   }
 
   .tool-btn {
-    padding: 10px;
-    height: 44px;
-    width: 44px;
+    padding: 12px 10px;
+    height: auto;
+    width: auto;
     border-radius: 12px;
   }
 
   .tool-btn span {
-    display: none;
+    display: block;
   }
 
-  /* Hide text, show icon only */
+  /* Tool icon size */
   .tool-btn i {
     font-size: 18px;
   }
 
   /* Sliders & Pickers */
   .color-picker-wrapper {
-    width: 44px;
+    width: 100%;
   }
-
-  /* Dark Theme Adjustments for Dock */
 
 }
 
@@ -1242,20 +1239,6 @@ body {
 
   .room-id {
     font-size: 10px;
-  }
-
-  .sidebar {
-    bottom: 12px;
-    left: 8px;
-    right: 8px;
-    padding: 12px;
-    gap: 12px;
-  }
-
-  .tool-btn {
-    height: 38px;
-    width: 38px;
-    padding: 8px;
   }
 }
 
@@ -1278,43 +1261,7 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* =========================================
-   8. MOBILE RESPONSIVENESS
-   ========================================= */
-/* =========================================
-   8. MOBILE RESPONSIVENESS (Reverted to Desktop View)
-   ========================================= */
-/* 
-   User specifically requested Desktop View on Mobile.
-   Floating dock styles are removed to keep the sidebar visible.
-*/
 
-@media (max-width: 768px) {
-
-  /* Minimal adjustments for spacing if needed, but keeping layout intact */
-  .app-header {
-    height: 60px;
-    padding: 0 12px;
-  }
-
-  .room-id span {
-    display: none;
-    /* Hide label, show ID */
-  }
-
-  /* Force Sidebar to remain visible (Desktop Mode) */
-  .container {
-    flex-direction: row;
-    /* Ensure row layout */
-  }
-
-  /* Sidebar adjustments for small screens if needed */
-  .sidebar {
-    width: 260px;
-    /* Keep fixed width or make resizable later */
-    flex-shrink: 0;
-  }
-}
 
 /* =========================================
    MOBILE TOUCH FIXES

@@ -223,7 +223,7 @@ function setupCanvasCallbacks() {
             wsClient.sendDrawingEvent('draw-incremental', {
                 points: newPoints,
                 color: this.currentColor,
-                width: this.currentWidth,
+                width: this.getReferenceStrokeWidth(),
                 tool: this.currentTool,
                 isComplete: false
             });
@@ -233,14 +233,27 @@ function setupCanvasCallbacks() {
 
     canvasManager.emitCompleteStroke = function () {
         if (this.currentPath.length > 0) {
-            // Send final complete stroke to ensure all points are received
-            wsClient.sendDrawingEvent('draw', {
-                points: this.currentPath,
+            const tempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const points = this.currentPath.slice();
+            const data = {
+                tempId: tempId,
+                points: points,
                 color: this.currentColor,
-                width: this.currentWidth,
+                width: this.getReferenceStrokeWidth(),
                 tool: this.currentTool,
                 isComplete: true
+            };
+
+            // Optimistic add to prevent loss on resize while waiting for server
+            canvasManager.addOperation({
+                type: 'draw',
+                id: tempId,
+                userId: this.currentUserId || currentUserId,
+                data: data
             });
+
+            // Send final complete stroke to ensure all points are received
+            wsClient.sendDrawingEvent('draw', data);
         }
         // Reset for next stroke
         lastSentIndex = 0;
@@ -270,16 +283,19 @@ function setupSidebarGestures() {
 
     // Valid swipe threshold (px)
     const DRAG_THRESHOLD = 30;
+    const TAP_THRESHOLD = 10;
 
     let startX = 0;
     let startY = 0;
     let initialTranslateY = 0; // For mobile
     let isDragging = false;
     let isMobile = false;
+    let didDrag = false;
 
     toggleBtn.addEventListener('touchstart', (e) => {
         isDragging = true;
         isMobile = window.innerWidth <= 900;
+        didDrag = false;
         toggleBtn.setAttribute('data-dragged', 'false');
 
         startX = e.touches[0].clientX;
@@ -320,7 +336,8 @@ function setupSidebarGestures() {
             sidebar.style.transform = `translate3d(-50%, ${currentPercent}%, 0)`;
 
             // Flag as intentional drag if moved enough
-            if (Math.abs(deltaY) > 5) {
+            if (!didDrag && Math.abs(deltaY) > TAP_THRESHOLD) {
+                didDrag = true;
                 toggleBtn.setAttribute('data-dragged', 'true');
             }
         }
@@ -336,7 +353,7 @@ function setupSidebarGestures() {
         sidebar.style.transform = ''; // Clear inline to let class take over
 
         // Determine final state based on drag distance
-        if (isMobile && toggleBtn.getAttribute('data-dragged') === 'true') {
+        if (isMobile && didDrag) {
             const endY = e.changedTouches[0].clientY;
             const distY = endY - startY;
 
@@ -649,6 +666,10 @@ function setupCursorTracking() {
 
     resizeCursorCanvas();
     window.addEventListener('resize', resizeCursorCanvas);
+    if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(() => resizeCursorCanvas());
+        resizeObserver.observe(document.getElementById('canvas'));
+    }
 
     // Render remote cursors periodically
     cursorUpdateInterval = setInterval(() => {
@@ -671,8 +692,9 @@ function drawCursor(ctx, cursorData) {
     // x, y are normalized (0-1)
     // 1. Convert to World Pixels
     // We can use canvasManager helper if available, or calc manually
-    const worldX = x * canvasManager.canvas.width;
-    const worldY = y * canvasManager.canvas.height;
+    const worldPos = canvasManager.toPixelPos({ x, y });
+    const worldX = worldPos.x;
+    const worldY = worldPos.y;
 
     // 2. Convert to Screen Pixels (Apply Camera Transform)
     const { zoom, x: panX, y: panY } = canvasManager.camera;
