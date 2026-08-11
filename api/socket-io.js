@@ -1,2 +1,2 @@
-// Vercel Function entrypoint for the Socket.IO server.
-module.exports = require('../server/server');
+// Vercel Function entrypoint when the project Root Directory is the repository.
+module.exports = require('../client/api/socket-io');

@@ -19,8 +19,8 @@ const io = socketIo(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from client directory
-app.use(express.static(path.join(__dirname, '../client')));
+// Serve static files from the client directory
+app.use(express.static(path.join(__dirname, '../..')));
 
 
 io.on('connection', (socket) => {
