@@ -35,8 +35,17 @@ async function init() {
     const canvas = document.getElementById('canvas');
     canvasManager = new CanvasManager(canvas);
 
-    // Initialize WebSocket
-    wsClient = new WebSocketClient(window.location.origin);
+    // Vercel serves Socket.IO from a function path and requires direct
+    // WebSocket transport. The long-running local server uses Socket.IO's
+    // default path and supports its normal transport negotiation.
+    const isVercel = window.location.hostname.endsWith('.vercel.app');
+    const socketOptions = isVercel
+        ? {
+            path: '/api/socket-io/socket.io',
+            transports: ['websocket']
+        }
+        : {};
+    wsClient = new WebSocketClient(window.location.origin, socketOptions);
     wsClient.setReferenceSize(canvasManager.referenceSize);
 
     try {

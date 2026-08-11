@@ -456,8 +456,13 @@ io.on('connection', (socket) => {
     });
 });
 
-// Start server
-server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`WebSocket server ready for connections`);
-});
+// Start a long-running server locally. Vercel imports and manages the server
+// through api/socket-io.js instead of opening a port during module loading.
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`WebSocket server ready for connections`);
+    });
+}
+
+module.exports = server;

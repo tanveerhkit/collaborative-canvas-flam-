@@ -108,7 +108,26 @@ sequenceDiagram
    ```
 4. Open `http://localhost:3000`.
 
+## Vercel Deployment
+
+The repository includes a Vercel Function entrypoint for Socket.io and rewrites
+that serve the static client from the site root. Import the repository in
+Vercel with the project root left at the repository root; no custom build or
+output directory is required.
+
+Vercel WebSockets are currently a beta feature. Connections are pinned to a
+single function instance, but this project's room state is held in memory. A
+production deployment should move room state and cross-instance messaging to a
+shared store such as Redis. In-memory rooms are suitable only for a small demo
+and reset whenever the function instance is recycled.
+
 ## Testing
+
+Run the automated deployment check:
+
+```bash
+npm test
+```
 
 Manual checks:
 

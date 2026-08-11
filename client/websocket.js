@@ -4,8 +4,9 @@
  */
 
 class WebSocketClient {
-    constructor(serverUrl) {
+    constructor(serverUrl, socketOptions = {}) {
         this.serverUrl = serverUrl;
+        this.socketOptions = socketOptions;
         this.socket = null;
         this.connected = false;
         this.roomId = null;
@@ -46,7 +47,7 @@ class WebSocketClient {
     connect() {
         return new Promise((resolve, reject) => {
             try {
-                this.socket = io(this.serverUrl);
+                this.socket = io(this.serverUrl, this.socketOptions);
 
                 this.socket.on('connect', () => {
                     console.log('Connected to server');
