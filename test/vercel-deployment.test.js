@@ -13,6 +13,7 @@ test('Vercel deployment exposes the client and a WebSocket-only Socket.IO functi
 
     assert.equal(config.functions['api/socket-io.js'].maxDuration, 300);
     assert.deepEqual(config.rewrites, [
+        { source: '/api/socket-io/:path*', destination: '/api/socket-io' },
         { source: '/', destination: '/client/index.html' },
         { source: '/:asset*', destination: '/client/:asset*' }
     ]);

@@ -7,6 +7,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/socket-io/:path*",
+      "destination": "/api/socket-io"
+    },
+    {
       "source": "/",
       "destination": "/client/index.html"
     },
